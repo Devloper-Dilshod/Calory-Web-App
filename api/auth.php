@@ -1,91 +1,145 @@
 <?php
-// api/auth.php - TO'LIQ ISHLAYDIGAN VERSIYA (USERNAME ORQALI)
+// api/auth.php - TO'LIQ ISHLAYDIGAN VA JSON BAZASIGA O'TKAZILGAN VERSIYA
 
 header('Content-Type: application/json');
 
+// --- JSON YORDAMCHI FUNKSIYALAR ---
+
+$users_file = '../db/users.json';
+$db_dir = dirname($users_file);
+
+if (!is_dir($db_dir)) {
+    mkdir($db_dir, 0777, true);
+}
+if (!file_exists($users_file)) {
+    file_put_contents($users_file, json_encode([]));
+}
+
+function load_users() {
+    global $users_file;
+    $json_data = file_get_contents($users_file);
+    return json_decode($json_data, true) ?? [];
+}
+
+function save_users($users) {
+    global $users_file;
+    file_put_contents($users_file, json_encode($users, JSON_PRETTY_PRINT));
+}
+
+// -----------------------------------
+
+$input = json_decode(file_get_contents('php://input'), true);
+$action = $input['action'] ?? '';
+
 try {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $action = $input['action'] ?? '';
-    $db_file = '../db/app.sqlite3';
-    
-    // DB katalogini yaratish
-    if (!file_exists(dirname($db_file))) { mkdir(dirname($db_file), 0777, true); }
-    
-    $pdo = new PDO('sqlite:' . $db_file);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $users = load_users();
 
     switch ($action) {
         case 'register':
             $username = strtolower(trim($input['username'] ?? ''));
             $password = trim($input['password'] ?? '');
             
-            if (empty($username) || empty($password)) { echo json_encode(['success' => false, 'message' => 'Foydalanuvchi nomi va parol majburiy!']); exit; }
-            if (strlen($password) < 6) { echo json_encode(['success' => false, 'message' => 'Parol kamida 6 belgidan iborat boʻlishi kerak.']); exit; }
+            if (empty($username) || empty($password) || strlen($password) < 6) {
+                 http_response_code(400); 
+                 echo json_encode(['success' => false, 'message' => 'Foydalanuvchi nomi majburiy va parol kamida 6 belgi boʻlishi kerak.']); 
+                 exit; 
+            }
 
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
-            $stmt->execute([$username]);
-            if ($stmt->fetch()) { echo json_encode(['success' => false, 'message' => 'Bu foydalanuvchi nomi allaqachon band qilingan.']); exit; }
+            // Foydalanuvchi mavjudligini tekshirish
+            foreach ($users as $user) {
+                if ($user['username'] === $username) {
+                    http_response_code(409); // Conflict
+                    echo json_encode(['success' => false, 'message' => 'Bu foydalanuvchi nomi band. Boshqasini tanlang.']); 
+                    exit; 
+                }
+            }
 
+            // Yangi ID yaratish (mavjud eng katta ID + 1)
+            $new_id = empty($users) ? 1 : max(array_column($users, 'id')) + 1;
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
-            $stmt->execute([$username, $passwordHash]);
-            $user_id = $pdo->lastInsertId();
-            
-            // Ro'yxatdan o'tgandan so'ng darhol kirish ma'lumotlarini qaytarish
-            echo json_encode(['success' => true, 'message' => '✅ Roʻyxatdan muvaffaqiyatli oʻtdingiz!', 'user' => ['id' => $user_id, 'username' => $username]]);
-            break;
 
+            $new_user = [
+                'id' => $new_id,
+                'username' => $username,
+                'password_hash' => $passwordHash,
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+
+            $users[] = $new_user;
+            save_users($users);
+
+            http_response_code(201); // Created
+            echo json_encode([
+                'success' => true, 
+                'message' => '✅ Muvaffaqiyatli roʻyxatdan oʻtdingiz!', 
+                'user' => ['id' => $new_id, 'username' => $username]
+            ]);
+            break;
+            
         case 'login':
             $username = strtolower(trim($input['username'] ?? ''));
             $password = trim($input['password'] ?? '');
-
-            if (empty($username) || empty($password)) { echo json_encode(['success' => false, 'message' => 'Foydalanuvchi nomi yoki parol boʻsh boʻlmasligi kerak.']); exit; }
-
-            $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = ?");
-            $stmt->execute([$username]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$user || !password_verify($password, $user['password_hash'])) {
-                echo json_encode(['success' => false, 'message' => 'Notoʻgʻri foydalanuvchi nomi yoki parol.']);
-                exit;
+            
+            if (empty($username) || empty($password)) {
+                 http_response_code(400); 
+                 echo json_encode(['success' => false, 'message' => 'Foydalanuvchi nomi va parol majburiy!']); 
+                 exit; 
             }
-            
-            echo json_encode(['success' => true, 'message' => '✅ Muvaffaqiyatli kirdingiz!', 'user' => ['id' => $user['id'], 'username' => $user['username']]]);
+
+            $found_user = null;
+            foreach ($users as $user) {
+                if ($user['username'] === $username) {
+                    $found_user = $user;
+                    break;
+                }
+            }
+
+            if ($found_user && password_verify($password, $found_user['password_hash'])) {
+                echo json_encode([
+                    'success' => true, 
+                    'message' => '✅ Tizimga muvaffaqiyatli kirdingiz!', 
+                    'user' => ['id' => $found_user['id'], 'username' => $found_user['username']]
+                ]);
+            } else {
+                http_response_code(401); // Unauthorized
+                echo json_encode(['success' => false, 'message' => 'Foydalanuvchi nomi yoki parol notoʻgʻri.']);
+            }
             break;
             
-        case 'get_user_info':
-            $user_id = $input['user_id'] ?? null;
-            if (!$user_id) { http_response_code(401); echo json_encode(['success' => false, 'message' => 'Avtorizatsiya xatosi.']); exit; }
-            
-            $stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
-            $stmt->execute([$user_id]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$user) { http_response_code(404); echo json_encode(['success' => false, 'message' => 'Foydalanuvchi topilmadi.']); exit; }
-            
-            echo json_encode(['success' => true, 'user' => $user]);
-            break;
-
         case 'change_password':
             $user_id = $input['user_id'] ?? null;
             $current_password = trim($input['current_password'] ?? '');
             $new_password = trim($input['new_password'] ?? '');
-            
-            if (!$user_id) { http_response_code(401); echo json_encode(['success' => false, 'message' => 'Avtorizatsiya xatosi.']); exit; }
-            if (strlen($new_password) < 6) { echo json_encode(['success' => false, 'message' => 'Yangi parol kamida 6 belgidan iborat boʻlishi kerak.']); exit; }
 
-            $stmt = $pdo->prepare("SELECT password_hash FROM users WHERE id = ?");
-            $stmt->execute([$user_id]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$user_id || empty($current_password) || empty($new_password) || strlen($new_password) < 6) {
+                 http_response_code(400); 
+                 echo json_encode(['success' => false, 'message' => 'Parol kamida 6 belgidan iborat boʻlishi kerak.']); 
+                 exit; 
+            }
 
-            if (!$user) { http_response_code(404); echo json_encode(['success' => false, 'message' => 'Foydalanuvchi topilmadi.']); exit; }
-            if (!password_verify($current_password, $user['password_hash'])) { echo json_encode(['success' => false, 'message' => 'Joriy parol notoʻgʻri kiritilgan.']); exit; }
+            $found = false;
+            foreach ($users as $key => $user) {
+                if ($user['id'] == $user_id) {
+                    $found = true;
+                    if (!password_verify($current_password, $user['password_hash'])) { 
+                        http_response_code(401); 
+                        echo json_encode(['success' => false, 'message' => 'Joriy parol notoʻgʻri kiritilgan.']); 
+                        exit; 
+                    }
 
-            $newPasswordHash = password_hash($new_password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
-            $stmt->execute([$newPasswordHash, $user_id]);
+                    $newPasswordHash = password_hash($new_password, PASSWORD_DEFAULT);
+                    $users[$key]['password_hash'] = $newPasswordHash;
+                    save_users($users);
 
-            echo json_encode(['success' => true, 'message' => '✅ Parolingiz muvaffaqiyatli almashtirildi!']);
+                    echo json_encode(['success' => true, 'message' => '✅ Parolingiz muvaffaqiyatli almashtirildi!']);
+                    exit;
+                }
+            }
+
+            if (!$found) { 
+                http_response_code(404); 
+                echo json_encode(['success' => false, 'message' => 'Foydalanuvchi topilmadi.']); 
+            }
             break;
             
         default: 
@@ -94,10 +148,8 @@ try {
             break;
     }
 
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => "DB xatosi: " . $e->getMessage()]);
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => "Kutilmagan xato: " . $e->getMessage()]);
+     http_response_code(500); 
+     echo json_encode(['success' => false, 'message' => '❌ Serverda kutilmagan xato roʻy berdi: ' . $e->getMessage()]);
 }
+?>

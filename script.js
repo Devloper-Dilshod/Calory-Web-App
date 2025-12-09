@@ -1,876 +1,901 @@
-// script.js - YAKUNIY VA TO'LIQ ISHLAYDIGAN VERSIYA
+// ==========================================================
+// CALORY WEB APP - ASOSIY JAVASCRIPT LOGIKASI (YAKUNIY VERSIYA)
+// ==========================================================
 
-// --- API SOZLAMALARI ---
-const PROXY_CALCULATE_URL = 'api/calculate.php';
-const PROXY_AUTH_URL = 'api/auth.php';
-const PROXY_DATA_URL = 'api/data.php'; 
+const API_URL = 'api/';
 
-let USER_ID = localStorage.getItem('user_id'); 
-let USER_DATA = JSON.parse(localStorage.getItem('user_data')) || {};
-let CACHE = {};
-let HISTORY_DATA = []; // Tarix ma'lumotlarini saqlash
-
-// --- Yangi sobit qiymat ---
-const CALORIE_TARGET = 2000; // Har bir foydalanuvchi uchun kunlik maqsad (misol)
-
-// --- HTML Elementlari ---
-const mainApp = document.getElementById('mainApp');
+// --- DOM elementlarini aniqlash ---
 const authContainer = document.getElementById('authContainer');
-
-// --- Auth elementlari (login.html) ---
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
-const loginUsernameInput = document.getElementById('loginUsername');
-const regUsernameInput = document.getElementById('regUsername');
+const switchRegisterBtn = document.getElementById('switchRegister');
+const switchLoginBtn = document.getElementById('switchLogin');
 const authError = document.getElementById('authError');
+const authErrorMessage = document.getElementById('authErrorMessage');
 const authSuccess = document.getElementById('authSuccess');
+const authSuccessMessage = document.getElementById('authSuccessMessage');
 
-// --- Main App elementlari (index.html) ---
+const mainApp = document.getElementById('mainApp');
 const themeToggle = document.getElementById('themeToggle');
 const themeIcon = document.getElementById('themeIcon');
+const profileBtn = document.getElementById('profileBtn');
 const logoutBtn = document.getElementById('logoutBtn');
-const tabButtons = document.querySelectorAll('.tab-button');
+const logoutBtnModal = document.getElementById('logoutBtnModal');
+const profileModal = document.getElementById('profileModal');
+const closeProfileModal = document.getElementById('closeProfileModal');
+const changePasswordForm = document.getElementById('changePasswordForm');
+const profileUsernameEl = document.getElementById('profileUsername');
+const profileError = document.getElementById('profileError');
+const profileErrorMessage = document.getElementById('profileErrorMessage');
+const profileSuccess = document.getElementById('profileSuccess');
+const profileSuccessMessage = document.getElementById('profileSuccessMessage');
+
 const foodInput = document.getElementById('foodInput');
-const imageUpload = document.getElementById('imageUpload'); 
-const imageUploadLabel = document.getElementById('imageUploadLabel'); 
-const imageFileName = document.getElementById('imageFileName'); 
-const imageUploadText = document.getElementById('imageUploadText'); 
+const imageUpload = document.getElementById('imageUpload');
+const imageUploadText = document.getElementById('imageUploadText');
+const imageFileName = document.getElementById('imageFileName');
 const searchBtn = document.getElementById('searchBtn');
 const resultDiv = document.getElementById('result');
 const emptyResult = document.getElementById('emptyResult');
-const historyList = document.getElementById('historyList');
-// Stats uchun yangi div ichida
-const statsBarContainer = document.getElementById('statsBarContainer'); 
-const avgProtein = document.getElementById('avgProtein');
-const avgFat = document.getElementById('avgFat');
-const avgCarbs = document.getElementById('avgCarbs');
-const statsContent = document.getElementById('statsContent'); // Yangi element
-const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-const loading = document.getElementById('loading');
+const loadingDiv = document.getElementById('loading');
 const loadingMessage = document.getElementById('loadingMessage');
 const errorDiv = document.getElementById('errorDiv');
-const errorMessage = document.getElementById('errorMessage');
+const errorMessageEl = document.getElementById('errorMessage');
 
-// Profil/Modal elementlari
-const profileBtn = document.getElementById('profileBtn');
-const profileModal = document.getElementById('profileModal');
-const closeProfileModal = document.getElementById('closeProfileModal');
-const logoutBtnModal = document.getElementById('logoutBtnModal');
+const historyList = document.getElementById('historyList');
+const emptyHistory = document.getElementById('emptyHistory');
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+const tabButtons = document.querySelectorAll('.tab-button');
+const tabContents = document.querySelectorAll('.tab-content');
+const statsBarContainer = document.getElementById('statsBarContainer');
+const avgProteinEl = document.getElementById('avgProtein');
+const avgFatEl = document.getElementById('avgFat');
+const avgCarbsEl = document.getElementById('avgCarbs');
 const detailModal = document.getElementById('detailModal');
 const closeDetailModal = document.getElementById('closeDetailModal');
+const detailFoodName = document.getElementById('detailFoodName');
 const detailContent = document.getElementById('detailContent');
-const changePasswordForm = document.getElementById('changePasswordForm');
-const profileUsername = document.getElementById('profileUsername');
-const profileError = document.getElementById('profileError');
-const profileSuccess = document.getElementById('profileSuccess');
 
+let globalUserId = null;
+let globalUsername = null;
+let historyData = []; 
 
-// --- YORDAMCHI FUNKSIYALAR ---
+// --- Yordamchi Funksiyalar ---
 
-function checkAuthAndRedirect() {
-    USER_ID = localStorage.getItem('user_id'); 
-    USER_DATA = JSON.parse(localStorage.getItem('user_data'));
-    const isAuth = localStorage.getItem('isAuthenticated') === 'true' && USER_ID;
-    const isLoginPage = window.location.pathname.includes('login.html');
+function setStorage(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
 
-    if (isAuth && isLoginPage) {
-        window.location.href = 'index.html';
-    } else if (!isAuth && !isLoginPage) {
-        window.location.href = 'login.html';
-    } else if (isAuth && mainApp) {
-        initMainApp();
-    } else if (!isAuth && authContainer) {
-        initAuthApp();
+function getStorage(key) {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+}
+
+// 💥 LOADING FUNKSIYASI TUZATILDI
+function showLoading(message = 'Hisoblanmoqda...') {
+    if (loadingDiv && loadingMessage) {
+        loadingMessage.textContent = message;
+        loadingDiv.classList.remove('hidden');
+    }
+    if (searchBtn) {
+        searchBtn.disabled = true;
+    }
+    // Ekranda natijani tozalash
+    if (resultDiv) resultDiv.innerHTML = ''; 
+    if (emptyResult) emptyResult.classList.remove('hidden'); 
+}
+
+function hideLoading() {
+    if (loadingDiv) {
+        loadingDiv.classList.add('hidden');
+    }
+    if (searchBtn) {
+        searchBtn.disabled = false;
     }
 }
 
-function showAuthError(message) { 
-    if (authError && document.getElementById('authErrorMessage')) { 
-        authSuccess?.classList.add('hidden'); 
-        document.getElementById('authErrorMessage').innerHTML = message; 
-        authError.classList.remove('hidden'); 
-        setTimeout(() => authError.classList.add('hidden'), 7000); 
-    } 
+function showError(message) {
+    if (errorDiv && errorMessageEl) {
+        errorMessageEl.textContent = message;
+        errorDiv.classList.remove('hidden');
+        setTimeout(() => {
+            errorDiv.classList.add('hidden');
+        }, 5000);
+    } else {
+        console.error("Xato: ", message);
+    }
 }
-function showAuthSuccess(message) { 
-    if (authSuccess && document.getElementById('authSuccessMessage')) { 
-        authError?.classList.add('hidden'); 
-        document.getElementById('authSuccessMessage').innerHTML = message; 
-        authSuccess.classList.remove('hidden'); 
-        setTimeout(() => authSuccess.classList.add('hidden'), 7000); 
-    } 
-}
-function showProfileError(message) { 
-    if (profileError && document.getElementById('profileErrorMessage')) { 
-        profileSuccess?.classList.add('hidden'); 
-        document.getElementById('profileErrorMessage').innerHTML = message; 
-        profileError.classList.remove('hidden'); 
-        setTimeout(() => profileError.classList.add('hidden'), 7000); 
-    } 
-}
-function showProfileSuccess(message) { 
-    if (profileSuccess && document.getElementById('profileSuccessMessage')) { 
-        profileError?.classList.add('hidden'); 
-        document.getElementById('profileSuccessMessage').innerHTML = message; 
-        profileSuccess.classList.remove('hidden'); 
-        setTimeout(() => profileSuccess.classList.add('hidden'), 7000); 
-    } 
-}
-function showError(message) { 
-    if (errorDiv && errorMessage) { 
-        errorMessage.textContent = message; 
-        errorDiv.classList.remove('hidden'); 
-        setTimeout(() => errorDiv.classList.add('hidden'), 7000); 
-    } 
-}
-function showLoading(message) { 
-    if (loading && loadingMessage) { 
-        loadingMessage.textContent = message; 
-        loading.classList.remove('hidden'); 
-    } 
-}
-function hideLoading() { loading?.classList.add('hidden'); }
 
-async function sendRequest(url, action, data) {
+function showAuthMessage(type, message, isSuccess) {
+    let el, msgEl;
+    if (type === 'profile') {
+        el = isSuccess ? profileSuccess : profileError;
+        msgEl = isSuccess ? profileSuccessMessage : profileErrorMessage;
+    } else { // login/register
+        el = isSuccess ? authSuccess : authError;
+        msgEl = isSuccess ? authSuccessMessage : authErrorMessage;
+    }
+
+    if (!el || !msgEl) return; 
+
+    el.classList.add('hidden');
+    setTimeout(() => {
+        msgEl.textContent = message;
+        el.classList.remove('hidden');
+        
+        if (type === 'profile') {
+            setTimeout(() => {
+                el.classList.add('hidden');
+            }, 3000);
+        }
+    }, 50);
+}
+
+function resetAuthMessages() {
+    if (authError) authError.classList.add('hidden');
+    if (authSuccess) authSuccess.classList.add('hidden');
+    if (profileError) profileError.classList.add('hidden');
+    if (profileSuccess) profileSuccess.classList.add('hidden');
+}
+
+// ✅ safeFetch funksiyasi (body stream already read xatosi tuzatilgan)
+async function safeFetch(endpoint, data) {
+    const url = API_URL + endpoint;
+
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, user_id: USER_ID, ...data })
+            body: JSON.stringify(data)
         });
-        if (!response.ok) {
-            let errorText = await response.text();
-            throw new Error(`Serverdan xato: Status ${response.status}. ${errorText.substring(0, 100)}...`);
+
+        // MUHIM: Javobni avval matn sifatida o'qish (faqat bir marta streamni iste'mol qiladi)
+        const responseText = await response.text(); 
+        let responseData;
+        
+        try {
+            // Matnni JSON sifatida tahlil qilish
+            responseData = JSON.parse(responseText); 
+        } catch (e) {
+            // Agar JSON tahlil qilmasa (ko'pincha server PHP xatosi bo'lganda)
+            throw new Error(`Serverdan noto'g'ri javob keldi. Status: ${response.status}. PHP/DB xatosi: ${responseText.substring(0, 100)}...`);
         }
-        const result = await response.json(); 
-        if (result.success) {
-            return result;
-        } else {
-            throw new Error(result.message);
+
+        if (!response.ok || responseData.success === false || responseData.error) {
+            const errorMessage = responseData.message || responseData.error || `Xatolik status: ${response.status}`;
+            throw new Error(errorMessage);
         }
+
+        return responseData;
+
     } catch (error) {
-        if (error.message.startsWith('Failed to fetch')) {
-            throw new Error("❌ Tarmoq xatosi: Serverga ulanib bo'lmadi. **PHP serveri ishlayotganini** tekshiring.");
-        }
         throw error;
     }
 }
 
-function loadTheme() {
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-        themeIcon?.classList.remove('fa-moon');
-        themeIcon?.classList.add('fa-sun');
-    } else {
-        document.documentElement.classList.remove('dark');
-        themeIcon?.classList.remove('fa-sun');
-        themeIcon?.classList.add('fa-moon');
-    }
-}
-function setupThemeToggle(toggleElement) {
-    toggleElement?.addEventListener('click', () => {
-        if (document.documentElement.classList.contains('dark')) {
-            document.documentElement.classList.remove('dark');
-            localStorage.theme = 'light';
-        } else {
-            document.documentElement.classList.add('dark');
-            localStorage.theme = 'dark';
-        }
-        loadTheme();
-    });
-}
 
-// --- Parolni ko'rsatish/yashirish mantiqi ---
-function setupPasswordToggle(inputFieldId, toggleButtonSelector) {
-    const inputField = document.getElementById(inputFieldId);
-    const toggleButton = document.querySelector(toggleButtonSelector);
+// --- Avtorizatsiya va Navigatsiya Mantiqi ---
+function checkAuth() {
+    const user = getStorage('user');
     
-    if (inputField && toggleButton) {
-        toggleButton.addEventListener('click', () => {
-            const icon = toggleButton.querySelector('i');
-            if (inputField.type === 'password') {
-                inputField.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                inputField.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        });
+    if (mainApp && user && user.id && user.username) {
+        globalUserId = user.id;
+        globalUsername = user.username;
+        initializeApp(user);
+    } 
+    else if (authContainer) {
+        showAuthScreen();
+    }
+    else if (mainApp && (!user || !user.id)) {
+        window.location.href = 'login.html';
     }
 }
 
+function showAuthScreen() {
+    if (mainApp) mainApp.classList.add('hidden');
+    if (authContainer) authContainer.classList.remove('hidden');
+    resetAuthMessages();
+    if (loginForm) loginForm.classList.remove('hidden');
+    if (registerForm) registerForm.classList.add('hidden');
+}
 
-// --- 1. AUTHENTICATION MANTIQI ---
-function initAuthApp() {
-    if (!authContainer) return; 
+function showMainApp() {
+    if (authContainer) authContainer.classList.add('hidden');
+    if (mainApp) mainApp.classList.remove('hidden');
     
-    document.getElementById('switchRegister')?.addEventListener('click', () => { loginForm.classList.add('hidden'); registerForm.classList.remove('hidden'); showAuthError(""); showAuthSuccess(""); });
-    document.getElementById('switchLogin')?.addEventListener('click', () => { registerForm.classList.add('hidden'); loginForm.classList.remove('hidden'); showAuthError(""); showAuthSuccess(""); });
-    
-    // Parol maydonlari uchun ko'zcha mantiqini ishga tushirish
-    setupPasswordToggle('loginPassword', '[data-password-toggle="loginPassword"]');
-    setupPasswordToggle('regPassword', '[data-password-toggle="regPassword"]');
-    
-    // 1. Ro'yxatdan o'tish (Register)
-    document.getElementById('registerBtn')?.addEventListener('click', async (e) => {
+    if (profileUsernameEl) profileUsernameEl.textContent = globalUsername;
+    loadHistoryAndStats(); 
+}
+
+function logout() {
+    localStorage.removeItem('user');
+    globalUserId = null;
+    globalUsername = null;
+    window.location.href = 'login.html'; 
+}
+
+
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = regUsernameInput.value.trim();
-        const password = document.getElementById('regPassword').value.trim();
-        
-        showLoading("Ro'yxatdan o'tish...");
+        resetAuthMessages();
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+
+        showLoading('Tizimga kirish...');
         try {
-            const result = await sendRequest(PROXY_AUTH_URL, 'register', { username, password });
+            const data = await safeFetch('auth.php', { action: 'login', username, password });
             
-            localStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('user_id', result.user.id);
-            localStorage.setItem('user_data', JSON.stringify(result.user));
-            showAuthSuccess(result.message);
-            setTimeout(() => { window.location.href = 'index.html'; }, 1000);
+            showAuthMessage('login', data.message, true);
+            const user = data.user;
+            setStorage('user', user);
+            globalUserId = user.id;
+            globalUsername = user.username;
             
-        } catch (error) { showAuthError(error.message); } finally { hideLoading(); }
-    });
-
-    // 2. Kirish (Login)
-    document.getElementById('loginBtn')?.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const username = loginUsernameInput.value.trim();
-        const password = document.getElementById('loginPassword').value.trim();
-
-        showLoading("Kirish...");
-        try {
-            const result = await sendRequest(PROXY_AUTH_URL, 'login', { username, password });
-            localStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('user_id', result.user.id);
-            localStorage.setItem('user_data', JSON.stringify(result.user));
-            window.location.href = 'index.html'; 
-        } catch (error) { showAuthError(error.message); } finally { hideLoading(); }
-    });
-    
-    loadTheme();
-    setupThemeToggle(document.getElementById('themeToggle'));
-    setupFloatingBallsAnimation();
-}
-
-// --- 2. ASOSIY ILOVA MANTIQI ---
-function initMainApp() {
-    if (!mainApp) return; 
-    
-    USER_ID = localStorage.getItem('user_id'); 
-    USER_DATA = JSON.parse(localStorage.getItem('user_data'));
-
-    // 2.1. Chiqish
-    const logoutHandler = () => { localStorage.clear(); window.location.href = 'login.html'; };
-    logoutBtn?.addEventListener('click', logoutHandler);
-    logoutBtnModal?.addEventListener('click', logoutHandler);
-    
-    // 2.2. Tablar (Menyular)
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => { switchTab(button.dataset.tab); });
-    });
-    switchTab('result'); 
-    
-    // 2.3. AI/DB Mantiqlari
-    searchBtn?.addEventListener('click', () => calculateCalories());
-    foodInput?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            calculateCalories();
-        }
-    });
-    
-    // Rasm tanlashda avtomatik hisoblash funksiyasi
-    imageUpload?.addEventListener('change', handleImageUploadChange);
-    
-    // 2.4. Profil Modal mantiqi
-    profileBtn?.addEventListener('click', showProfileModal);
-    closeProfileModal?.addEventListener('click', hideProfileModal);
-    
-    // 2.5. Detail Modal mantiqi
-    closeDetailModal?.addEventListener('click', hideDetailModal);
-    
-    // 2.6. Parolni almashtirish
-    setupPasswordChangeListener();
-    
-    // 2.7. Tarixni tozalash
-    clearHistoryBtn?.addEventListener('click', clearHistory);
-    
-    loadTheme();
-    setupThemeToggle(document.getElementById('themeToggle'));
-    setupFloatingBallsAnimation();
-    
-    showEmptyResult();
-    loadHistoryData();
-}
-
-// --- 3. AI HISOB-KITOB MANTIQI ---
-
-function convertFileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-    });
-}
-async function sendCalculationRequest(prompt, imageDataURI = null) {
-    const data = { prompt };
-    if (imageDataURI) { data.image_data = imageDataURI; }
-    
-    const response = await fetch(PROXY_CALCULATE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-
-    if (!response.ok) {
-        let errorData;
-        try {
-            // Agar PHP serveri JSON formatida xato qaytarsa, uni ko'rsatamiz
-            errorData = await response.json();
-            throw new Error(errorData.error || `AI serveridan javob kelmadi. HTTP Status: ${response.status}`);
-        } catch {
-             // Aks holda, umumiy xato
-            const errorText = await response.text();
-            throw new Error(`AI serveridan javob kelmadi. HTTP Status: ${response.status}. Javob: ${errorText.substring(0, 50)}...`);
-        }
-    }
-    
-    const result = await response.json();
-    return result.text; // PHP endi faqat toza matnni 'text' kalitida qaytaradi
-}
-
-async function calculateCalories() {
-    const foodName = foodInput.value.trim();
-    const imageFile = imageUpload.files[0];
-
-    if (!foodName && !imageFile) {
-        showError("Iltimos, taom nomini kiriting yoki rasm yuklang.");
-        return;
-    }
-
-    if (!imageFile && foodName && CACHE[foodName]) {
-        showResult(CACHE[foodName]);
-        return;
-    }
-
-    showLoading(imageFile ? "Rasmni tahlil qilmoqda va hisoblanmoqda..." : "Taomni aniqlamoqda va hisoblanmoqda...");
-
-    let imageDataURI = null;
-    if (imageFile) {
-        try {
-            imageDataURI = await convertFileToBase64(imageFile);
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 1000);
+            
         } catch (error) {
+            showAuthMessage('login', error.message, false);
+        } finally {
             hideLoading();
-            showError("Rasm konvertatsiyasida xato: " + error.message);
+        }
+    });
+}
+
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        resetAuthMessages();
+        const username = document.getElementById('regUsername').value;
+        const password = document.getElementById('regPassword').value;
+
+        showLoading('Roʻyxatdan oʻtish...');
+        try {
+            if (password.length < 6) { 
+                showAuthMessage('register', 'Parol kamida 6 belgidan iborat boʻlishi kerak.', false);
+                return;
+            }
+            if (!username.trim()) {
+                showAuthMessage('register', 'Foydalanuvchi nomi majburiy.', false);
+                return;
+            }
+
+            const data = await safeFetch('auth.php', { action: 'register', username, password });
+            
+            showAuthMessage('register', data.message, true);
+            const user = data.user;
+            setStorage('user', user);
+            globalUserId = user.id;
+            globalUsername = user.username;
+            
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 1000);
+            
+        } catch (error) {
+            showAuthMessage('register', error.message, false);
+        } finally {
+            hideLoading();
+        }
+    });
+}
+
+if (changePasswordForm) {
+    changePasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        resetAuthMessages();
+
+        const current_password = document.getElementById('currentPassword').value;
+        const new_password = document.getElementById('newPassword').value;
+
+        if (new_password.length < 6) {
+            showAuthMessage('profile', 'Yangi parol kamida 6 belgidan iborat boʻlishi kerak.', false);
             return;
         }
-    }
 
-    const prompt = `Siz ovqat mahsulotlari bo'yicha ekspert-diyetologsiz . Foydalanuvchining so'roviga binoan, faqat JSON formatida javob qaytaring, boshqa matn, izoh yoki kirish so'zini qo'shmang. Sizdan so'ralgan taom: "${foodName || 'Rasmdagi mahsulot'}" ${imageFile ? 'Quyida rasm bor, uni tahlil qiling va kaloriya qiymatini aniqlang.' : ''} Natijani quyidagi JSON formatida qaytaring (qiymatlar o'nlik kasrli bo'lishi mumkin): {"name": "Aniqlangan taom nomi", "category": "Taom kategoriyasi", "calories": 250, "protein": 12.3, "fat": 4.5, "carbs": 20.1, "fiber": 3.2} Faqat JSON, boshqa hech narsa yozma!`;
+        showLoading('Parol yangilanmoqda...');
+        try {
+            const data = await safeFetch('auth.php', { 
+                action: 'change_password', 
+                user_id: globalUserId, 
+                current_password, 
+                new_password 
+            });
+            
+            showAuthMessage('profile', data.message, true);
+            changePasswordForm.reset();
+            
+        } catch (error) {
+            showAuthMessage('profile', error.message, false);
+        } finally {
+            hideLoading();
+        }
+    });
+}
 
-    try {
-        const text = await sendCalculationRequest(prompt, imageDataURI);
-        
-        // !!! ISHONCHLI STRING TEKSHIRUVI !!!
-        if (!text || typeof text !== 'string' || text.trim().length === 0) {
-            throw new Error("AI serveridan noto'g'ri turdagi javob keldi (bo'sh yoki string emas). Server javobini tekshiring.");
+
+// --- Asosiy Ilova Mantiqi (index.html) ---
+
+if (searchBtn) {
+    searchBtn.addEventListener('click', async () => {
+        const prompt = foodInput.value.trim();
+        const imageFile = imageUpload.files[0];
+        let imageData = null;
+
+        if (prompt === '' && !imageFile) {
+            showError("Iltimos, taom nomini kiriting yoki rasm yuklang.");
+            return;
         }
 
-        // AI javobidan JSON obyektini ajratib olish (AI ba'zan JSON dan oldin yoki keyin ortiqcha matn qo'shadi)
-        const jsonTextMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonTextMatch) {
-            throw new Error("JSON formatida javob olinmadi. AI noto'g'ri formatda javob berdi. To'liq javob: " + text.substring(0, 200) + '...');
-        }
-        const json = JSON.parse(jsonTextMatch[0]);
-
-        await saveEntry(json);
-        CACHE[json.name] = json;
-        showResult(json);
-        
-        foodInput.value = '';
-        imageUpload.value = '';
-        handleImageUploadChange(true); // UI ni tozalash uchun
-        
-    } catch (error) {
-        showError(error.message);
-    } finally {
-        hideLoading();
-    }
-}
-
-async function saveEntry(data) {
-    try {
-        await sendRequest(PROXY_DATA_URL, 'save_entry', {
-            food_name: data.name,
-            calories: data.calories,
-            protein: data.protein,
-            fat: data.fat,
-            carbs: data.carbs,
-            fiber: data.fiber || 0 
-        });
-        await loadHistoryData();
-    } catch (error) {
-        showError("Tarixga saqlashda xato yuz berdi: " + error.message);
-    }
-}
-function showResult(json) {
-    emptyResult?.classList.add('hidden');
-    resultDiv.innerHTML = `
-        <h2 class="text-3xl font-bold text-green-600 dark:text-green-400 mb-4">${json.name}</h2>
-        <p class="text-xl text-gray-700 dark:text-gray-300 mb-6">Kategoriya: <span class="font-semibold text-blue-500">${json.category || 'Nomaʼlum'}</span></p>
-        
-        <div class="p-6 bg-green-50 dark:bg-green-900/20 rounded-xl shadow-lg border border-green-200 dark:border-green-800 mb-6">
-            <p class="text-sm font-semibold text-green-700 dark:text-green-300">UMUMIY KALORIYA</p>
-            <p class="text-5xl font-extrabold text-green-600 dark:text-green-400 mt-1">${json.calories.toFixed(1)} <span class="text-xl">kcal</span></p>
-        </div>
-
-        <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">100g yoki Umumiy Miqdor uchun:</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            ${createMacroCard('Protein', json.protein, 'blue')}
-            ${createMacroCard('Yogʻ', json.fat, 'yellow')}
-            ${createMacroCard('Uglevod', json.carbs, 'red')}
-            ${createMacroCard('Kletchatka', json.fiber || 0, 'purple')}
-        </div>
-        
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-6 italic">
-            Eslatma: Bu qiymatlar AI tahlili asosida hisoblangan.
-        </p>
-    `;
-}
-function createMacroCard(name, value, color) {
-    return `
-        <div class="p-4 bg-${color}-50 dark:bg-${color}-900/20 rounded-xl border border-${color}-200 dark:border-${color}-800 text-center">
-            <p class="text-sm text-gray-600 dark:text-gray-300">${name}</p>
-            <p class="text-2xl font-bold text-${color}-600 dark:text-${color}-400">${value.toFixed(1)}g</p>
-        </div>
-    `;
-}
-function showEmptyResult() {
-    resultDiv.innerHTML = '';
-    emptyResult?.classList.remove('hidden');
-}
-
-// Rasm yuklanganda avtomatik hisoblash mantiqi
-function handleImageUploadChange(isReset = false) {
-    if (imageUpload.files.length > 0) {
-        const fileName = imageUpload.files[0].name;
-        imageFileName.textContent = fileName;
-        imageFileName.classList.remove('hidden');
-        imageUploadText.classList.add('hidden');
-        imageUploadLabel.classList.add('border-green-500', 'border-solid');
-        imageUploadLabel.classList.remove('border-dashed');
-        
-        // Faqat foydalanuvchi yangi rasm tanlaganda hisoblash
-        if (!isReset) { 
-            calculateCalories(); 
-        }
-
-    } else {
-        imageFileName.textContent = '';
-        imageFileName.classList.add('hidden');
-        imageUploadText.classList.remove('hidden');
-        imageUploadLabel.classList.remove('border-green-500', 'border-solid');
-        imageUploadLabel.classList.add('border-dashed');
-    }
-}
-
-
-// --- 4. TARIX VA STATISTIKA MANTIQI ---
-
-function switchTab(tabName) {
-    tabButtons.forEach(button => {
-        if (button.dataset.tab === tabName) {
-            button.classList.add('active');
-            button.classList.remove('text-gray-500', 'dark:text-gray-400');
-            button.classList.add('text-green-500');
+        if (imageFile) {
+            showLoading('Rasm yuklanmoqda...');
+            const reader = new FileReader();
+            reader.readAsDataURL(imageFile);
+            reader.onload = async () => {
+                imageData = reader.result;
+                await runCalculation(prompt, imageData);
+            };
+            reader.onerror = () => {
+                showError('Rasm yuklashda xato.');
+                hideLoading();
+            };
         } else {
-            button.classList.remove('active');
-            button.classList.add('text-gray-500', 'dark:text-gray-400');
-            button.classList.remove('text-green-500');
+            await runCalculation(prompt, imageData);
         }
     });
-
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.add('hidden');
-    });
-
-    const contentElement = document.getElementById(`tabContent-${tabName}`);
-    if (contentElement) contentElement.classList.remove('hidden');
-
-    if (tabName === 'history') {
-        loadHistoryData();
-    } else if (tabName === 'stats') {
-        loadStatsData();
-    }
 }
-async function loadHistoryData() {
-    if (!historyList) return; 
+
+async function runCalculation(prompt, imageData) {
+    // 💥 Loader o'zgardi
+    loadingMessage.textContent = imageData ? 'AI rasmni tahlil qilmoqda...' : 'AI maʼlumotlarni hisoblamoqda...';
+    showLoading(loadingMessage.textContent);
     
-    showLoading("Tarix yuklanmoqda...");
+    const fullPrompt = `Taom: "${prompt}". Agar rasm mavjud bo'lsa, uni hisobga ol. Faqat JSON formatida javob ber va boshqa hech qanday izoh qo'shma. JSON quyidagi tuzilishda bo'lishi kerak: 
+    {
+      "food_name": "Tahlil qilingan taom nomi (Masalan: 200g Plov)",
+      "description": "Taom haqida qisqa tahlil (uzbek tilida, 30 so'zgacha).",
+      "calories": 999,
+      "protein": 50.0,
+      "fat": 30.0,
+      "carbs": 100.0,
+      "fiber": 10.0
+    }`;
+
     try {
-        const result = await sendRequest(PROXY_DATA_URL, 'get_history', {});
-        HISTORY_DATA = result.history;
-        renderHistory(HISTORY_DATA);
+        const data = await safeFetch('calculate.php', { prompt: fullPrompt, image_data: imageData });
         
-        if (document.getElementById('tabStats')?.classList.contains('active')) {
-            loadStatsData(); 
+        const jsonText = data.text;
+        let aiResult;
+        try {
+            aiResult = JSON.parse(jsonText); 
+        } catch (e) {
+            showError(`AI dan kelgan javob JSON formatida emas. Server javobi: ${jsonText.substring(0, 100)}...`);
+            return;
         }
+
+        displayResult(aiResult);
+        
+        // 💥 Avtomatik saqlash
+        await saveEntry(aiResult);
+        
+        if (foodInput) foodInput.value = '';
+        if (imageUpload) imageUpload.value = ''; 
+        if (imageFileName) imageFileName.classList.add('hidden');
+        if (imageUploadText) imageUploadText.textContent = 'Rasm yuklang';
+
     } catch (error) {
-        showError("Tarixni yuklashda xato: " + error.message);
-        HISTORY_DATA = [];
-        renderHistory(HISTORY_DATA);
+        showError(error.message || 'Hisoblashda kutilmagan xato roʻy berdi.');
     } finally {
         hideLoading();
     }
 }
 
-// Tarixni chizish (Eng yangi kunlar yuqorida bo'lishi uchun tartiblandi)
-function renderHistory(history) {
-    if (!historyList) return;
+// 💥 displayResult funksiyasi (Saqlash tugmasi olib tashlandi)
+function displayResult(result) {
+    if (emptyResult) emptyResult.classList.add('hidden');
+    
+    if (resultDiv) {
+        resultDiv.innerHTML = `
+            <h3 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">${result.food_name}</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-6">${result.description}</p>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="p-4 bg-green-100 dark:bg-green-900/50 rounded-lg text-center">
+                    <p class="text-3xl font-extrabold text-green-700 dark:text-green-300">${Math.round(result.calories)}</p>
+                    <p class="text-sm text-green-600 dark:text-green-400 font-semibold">Kaloriyalar (Kkal)</p>
+                </div>
+                <div class="p-4 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-blue-700 dark:text-blue-300">${(result.protein || 0).toFixed(1)}g</p>
+                    <p class="text-sm text-blue-600 dark:text-blue-400">Protein</p>
+                </div>
+                <div class="p-4 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-yellow-700 dark:text-yellow-300">${(result.fat || 0).toFixed(1)}g</p>
+                    <p class="text-sm text-yellow-600 dark:text-yellow-400">Yogʻ</p>
+                </div>
+                <div class="p-4 bg-purple-100 dark:bg-purple-900/50 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-purple-700 dark:text-purple-300">${(result.carbs || 0).toFixed(1)}g</p>
+                    <p class="text-sm text-purple-600 dark:text-purple-400">Uglevod</p>
+                </div>
+            </div>
+            `;
+    }
+}
 
-    historyList.innerHTML = '';
-    const emptyHistory = document.getElementById('emptyHistory');
-
-    if (history.length === 0) {
-        emptyHistory?.classList.remove('hidden');
-        clearHistoryBtn?.classList.add('hidden');
+async function saveEntry(result) {
+    if (!globalUserId) {
+        showError("Ma'lumotni saqlash uchun tizimga kiring.");
         return;
     }
     
-    emptyHistory?.classList.add('hidden');
-    clearHistoryBtn?.classList.remove('hidden');
+    try {
+        const data = await safeFetch('data.php', {
+            action: 'save_entry',
+            user_id: globalUserId,
+            food_name: result.food_name,
+            calories: result.calories,
+            protein: result.protein,
+            fat: result.fat,
+            carbs: result.carbs,
+            fiber: result.fiber || 0 
+        });
+        
+        // Saqlangandan keyin tarixni yangilash
+        await loadHistoryAndStats(); 
+        
+    } catch (error) {
+        showError(error.message || 'Saqlashda kutilmagan xato roʻy berdi.');
+    }
+}
 
-    // Sanalar bo'yicha guruhlash
+async function loadHistoryAndStats() {
+    if (!globalUserId) return;
+    
+    // Tarxni yangilayotganda loader chiqarmaymiz, chunki u natija uchun loader bilan konflikt qilishi mumkin
+    try {
+        const data = await safeFetch('data.php', {
+            action: 'get_history',
+            user_id: globalUserId
+        });
+        
+        historyData = data.history || [];
+        displayHistory(historyData);
+        generateStats(historyData);
+        
+    } catch (error) {
+        showError(error.message || 'Tarixni yuklashda xato roʻy berdi.');
+    }
+}
+
+function displayHistory(history) {
+    if (!historyList) return;
+    historyList.innerHTML = '';
+    
+    if (history.length === 0) {
+        if (emptyHistory) emptyHistory.classList.remove('hidden');
+        if (clearHistoryBtn) clearHistoryBtn.classList.add('hidden');
+        return;
+    }
+    
+    if (emptyHistory) emptyHistory.classList.add('hidden');
+    if (clearHistoryBtn) clearHistoryBtn.classList.remove('hidden');
+    
     const groupedHistory = history.reduce((acc, item) => {
         const date = item.log_date;
-        if (!acc[date]) acc[date] = [];
+        if (!acc[date]) {
+            acc[date] = [];
+        }
         acc[date].push(item);
         return acc;
     }, {});
     
-    // Sanalarni yangisidan eskisi bo'yicha tartiblash
-    const sortedDates = Object.keys(groupedHistory).sort().reverse(); 
+    for (const date in groupedHistory) {
+        const dateHeader = document.createElement('h4');
+        dateHeader.className = 'text-lg font-bold text-gray-700 dark:text-gray-200 mt-4 mb-2 border-b border-gray-200 dark:border-gray-700 pb-1';
+        dateHeader.textContent = formatDate(date);
+        historyList.appendChild(dateHeader);
 
-    sortedDates.forEach(date => {
-        const dateDiv = document.createElement('div');
-        dateDiv.className = 'mt-4 border-t pt-3 dark:border-gray-700';
-        dateDiv.innerHTML = `<h4 class="font-semibold text-blue-500 mb-2">${date}</h4>`;
-        
-        // Har bir kundagi taomlarni chiqarish
         groupedHistory[date].forEach(item => {
             const itemDiv = document.createElement('div');
-            itemDiv.className = 'flex justify-between items-center bg-gray-50 dark:bg-[#1f1f1f] p-3 rounded-lg border dark:border-gray-700 mb-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-[#252525] transition-colors';
+            itemDiv.className = 'flex justify-between items-center p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-lg shadow-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-[#1f1f1f] transition-colors';
             itemDiv.innerHTML = `
-                <span class="text-gray-700 dark:text-gray-200">${item.food_name}</span>
-                <span class="font-bold text-green-600">${item.calories.toFixed(1)} kcal <i class="fas fa-eye ml-2 text-sm text-gray-500"></i></span>
+                <div>
+                    <p class="font-semibold text-gray-800 dark:text-gray-100">${item.food_name}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">${item.calories.toFixed(0)} Kkal</p>
+                </div>
+                <button class="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 text-sm font-medium view-details" data-id="${item.id}">
+                    Batafsil <i class="fas fa-chevron-right text-xs ml-1"></i>
+                </button>
             `;
-            
-            itemDiv.addEventListener('click', () => showDetailModal(item));
-            dateDiv.appendChild(itemDiv);
+            historyList.appendChild(itemDiv);
         });
-        historyList.appendChild(dateDiv);
+    }
+    
+    document.querySelectorAll('.view-details').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const itemId = parseInt(e.currentTarget.getAttribute('data-id'));
+            const item = history.find(i => i.id === itemId);
+            if (item) {
+                showDetailModal(item);
+            }
+        });
     });
 }
-async function clearHistory() {
-    if (!confirm("Haqiqatan ham barcha tarixi ma'lumotlarini o'chirmoqchimisiz?")) return;
 
-    showLoading("Tarix tozalanmoqda...");
-    try {
-        await sendRequest(PROXY_DATA_URL, 'clear_history', {});
-        HISTORY_DATA = [];
-        renderHistory(HISTORY_DATA);
-        loadStatsData();
-    } catch (error) {
-        showError("Tarixni tozalashda xato: " + error.message);
-    } finally {
-        hideLoading();
-    }
-}
-
-
-// --- 5. STATISTIKA MANTIQI (Bar Chart tartibi to'g'ri) ---
-async function loadStatsData() {
-    if (!statsBarContainer || !statsContent) return;
-    
-    if (HISTORY_DATA.length === 0) {
-        // ... (Agar ma'lumot bo'lmasa, ogohlantirish ko'rsatish)
-        return; 
-    }
-    
-    // --- Kunlik kaloriyalarni hisoblash (Oxirgi 7 kun) ---
-    const dailyCalories = {};
+function formatDate(dateString) {
+    const date = new Date(dateString);
     const today = new Date();
-    const dates = [];
-
-    // Oxirgi 7 kun sanalarini tayyorlash (0-eng yangi, 6-eng eski)
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0]; 
-        dailyCalories[dateStr] = 0;
-        dates.push({ 
-            dateStr: dateStr, 
-            day: d.toLocaleDateString('uz-UZ', { weekday: 'short' }) 
-        }); 
-    }
-
-    // Tarixdagi ma'lumotlarni kunlar bo'yicha jamlash
-    HISTORY_DATA.forEach(item => {
-        if (dailyCalories.hasOwnProperty(item.log_date)) {
-            dailyCalories[item.log_date] += item.calories;
-        }
-    });
-
-    // --- Makroslarni hisoblash (O'rtacha 30 kun) ---
-    const totalEntries = HISTORY_DATA.length;
-    const totalProtein = HISTORY_DATA.reduce((sum, item) => sum + item.protein, 0);
-    const totalFat = HISTORY_DATA.reduce((sum, item) => sum + item.fat, 0);
-    const totalCarbs = HISTORY_DATA.reduce((sum, item) => sum + item.carbs, 0);
-
-    if (totalEntries > 0) {
-        avgProtein.textContent = `${(totalProtein / totalEntries).toFixed(1)}g`;
-        avgFat.textContent = `${(totalFat / totalEntries).toFixed(1)}g`;
-        avgCarbs.textContent = `${(totalCarbs / totalEntries).toFixed(1)}g`;
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    
+    if (dateString === today.toISOString().split('T')[0]) {
+        return 'Bugun';
+    } else if (dateString === yesterday.toISOString().split('T')[0]) {
+        return 'Kecha';
     } else {
-        avgProtein.textContent = '0g';
-        avgFat.textContent = '0g';
-        avgCarbs.textContent = '0g';
+        return date.toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric' });
     }
-
-
-    // --- Bar Chartni chizish (Chapdan o'ngga: Eski kun -> Yangi kun) ---
-    const maxCalorie = Math.max(...Object.values(dailyCalories), CALORIE_TARGET) * 1.1;
-
-    statsBarContainer.innerHTML = '';
-    
-    // Maqsad chizig'i (Target Line)
-    const targetHeightPercent = (CALORIE_TARGET / maxCalorie) * 100;
-    const targetLine = document.createElement('div');
-    targetLine.style.cssText = `
-        position: absolute; 
-        bottom: ${targetHeightPercent}%; 
-        left: 0; 
-        right: 0; 
-        height: 1px; 
-        background-color: #EF4444; 
-        border-top: 1px dashed #EF4444; 
-        z-index: 5;
-    `;
-    targetLine.innerHTML = `
-        <span class="absolute right-0 top-[-20px] text-xs font-semibold text-red-500 bg-white dark:bg-[#121212] px-2 py-0.5 rounded-sm">
-            ${CALORIE_TARGET} kcal (Maqsad)
-        </span>
-    `;
-    statsBarContainer.appendChild(targetLine);
-    
-    // Bar ustunlarini yaratish (dates massivi eski kundan boshlanadi, shuning uchun tartib to'g'ri)
-    dates.forEach(({ dateStr, day }) => {
-        const calories = dailyCalories[dateStr];
-        const heightPercent = (calories / maxCalorie) * 100;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flex flex-col items-center mx-1 h-full justify-end';
-        wrapper.style.width = 'calc(100% / 7 - 5px)';
-
-        const barItem = document.createElement('div');
-        barItem.className = 'bar-item flex flex-col items-center justify-end w-full';
-        barItem.style.height = `${heightPercent}%`;
-        barItem.style.backgroundColor = calories > CALORIE_TARGET ? '#F59E0B' : '#10B981';
-        barItem.style.borderRadius = '4px 4px 0 0';
-
-        // Tooltip
-        barItem.innerHTML = `
-            <div class="bar-tooltip dark:bg-gray-800 dark:text-gray-100 p-2 rounded-lg text-center shadow-lg">
-                <p class="font-bold">${calories.toFixed(0)} kcal</p>
-                <p class="text-xs">${day} (${dateStr.substring(5)})</p>
-            </div>
-        `;
-        
-        const dayLabel = document.createElement('div');
-        dayLabel.className = 'text-xs text-center mt-1 text-gray-600 dark:text-gray-400';
-        dayLabel.textContent = day;
-
-        wrapper.appendChild(barItem);
-        wrapper.appendChild(dayLabel);
-        
-        statsBarContainer.appendChild(wrapper);
-    });
 }
 
-
-// --- 6. MODAL FUNKSIYALARI ---
-
-function showProfileModal() {
-    profileModal.classList.remove('hidden');
-    profileUsername.textContent = USER_DATA.username || 'Yuklanmoqda...';
-    showProfileError(""); 
-    showProfileSuccess("");
-}
-function hideProfileModal() {
-    profileModal.classList.add('hidden');
-}
 function showDetailModal(item) {
-    if (!detailModal || !document.getElementById('detailFoodName')) return;
-    document.getElementById('detailFoodName').textContent = item.food_name;
+    if (!detailModal || !detailFoodName || !detailContent) return;
     
+    detailFoodName.textContent = item.food_name;
     detailContent.innerHTML = `
         <div class="space-y-3">
-            <p class="text-gray-500 dark:text-gray-400 text-sm">Sana: ${item.log_date}</p>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="p-3 bg-red-100 dark:bg-red-900/50 rounded-lg">
-                    <p class="text-sm font-semibold">Kaloriya:</p>
-                    <p class="text-lg font-bold text-green-600">${item.calories.toFixed(1)} kcal</p>
-                </div>
-                <div class="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                    <p class="text-sm font-semibold">Protein:</p>
-                    <p class="text-lg font-bold text-blue-600">${item.protein.toFixed(1)} g</p>
-                </div>
-                <div class="p-3 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">
-                    <p class="text-sm font-semibold">Yog':</p>
-                    <p class="text-lg font-bold text-yellow-600">${item.fat.toFixed(1)} g</p>
-                </div>
-                <div class="p-3 bg-green-100 dark:bg-green-900/50 rounded-lg">
-                    <p class="text-sm font-semibold">Uglevod:</p>
-                    <p class="text-lg font-bold text-green-600">${item.carbs.toFixed(1)} g</p>
-                </div>
+            <div class="flex justify-between border-b pb-1">
+                <span class="font-semibold text-gray-600 dark:text-gray-300">Sana:</span>
+                <span class="font-bold text-green-500">${formatDate(item.log_date)}</span>
             </div>
-            ${item.fiber ? 
-            `<div class="p-3 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-                <p class="text-sm font-semibold">Kletchatka:</p>
-                <p class="text-lg font-bold text-purple-600">${item.fiber.toFixed(1)} g</p>
-            </div>` : ''}
+            <div class="flex justify-between border-b pb-1">
+                <span class="font-semibold text-gray-600 dark:text-gray-300">Kaloriyalar:</span>
+                <span class="font-bold text-green-500">${item.calories.toFixed(0)} Kkal</span>
+            </div>
+            <div class="flex justify-between border-b pb-1">
+                <span class="font-semibold text-gray-600 dark:text-gray-300">Protein:</span>
+                <span class="font-bold">${item.protein.toFixed(1)}g</span>
+            </div>
+            <div class="flex justify-between border-b pb-1">
+                <span class="font-semibold text-gray-600 dark:text-gray-300">Yogʻ:</span>
+                <span class="font-bold">${item.fat.toFixed(1)}g</span>
+            </div>
+            <div class="flex justify-between border-b pb-1">
+                <span class="font-semibold text-gray-600 dark:text-gray-300">Uglevod:</span>
+                <span class="font-bold">${item.carbs.toFixed(1)}g</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="font-semibold text-gray-600 dark:text-gray-300">Kletchatka:</span>
+                <span class="font-bold">${item.fiber.toFixed(1)}g</span>
+            </div>
         </div>
     `;
     detailModal.classList.remove('hidden');
 }
-function hideDetailModal() {
-    detailModal.classList.add('hidden');
-}
 
-function setupPasswordChangeListener() {
-    changePasswordForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const currentPassword = document.getElementById('currentPassword').value.trim();
-        const newPassword = document.getElementById('newPassword').value.trim();
-        
-        if (!currentPassword || !newPassword) {
-            showProfileError("Barcha maydonlarni to'ldiring.");
-            return;
-        }
-        if (newPassword.length < 6) {
-            showProfileError("Yangi parol kamida 6 belgidan iborat boʻlishi kerak.");
-            return;
-        }
-
-        showLoading("Parol almashtirilmoqda...");
-        try {
-            const result = await sendRequest(PROXY_AUTH_URL, 'change_password', { 
-                current_password: currentPassword, 
-                new_password: newPassword 
-            });
-            showProfileSuccess(result.message);
-            changePasswordForm.reset();
-        } catch (error) { 
-            showProfileError(error.message); 
-        } finally { 
-            hideLoading(); 
-        }
+if (closeDetailModal) {
+    closeDetailModal.addEventListener('click', () => {
+        detailModal.classList.add('hidden');
     });
 }
 
 
-// --- 7. BOSHQA FUNKSIYALAR (CANVAS) ---
+if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', async () => {
+        if (!confirm("Haqiqatan ham barcha tarixi ma'lumotlarini o'chirmoqchimisiz?")) {
+            return;
+        }
+        if (!globalUserId) {
+            showError("Ma'lumotni tozalash uchun tizimga kiring.");
+            return;
+        }
 
-function setupFloatingBallsAnimation() {
-    const canvas = document.getElementById('floatingBallsCanvas');
-    if (!canvas) return;
+        showLoading('Tarix tozalanmoqda...');
+        try {
+            const data = await safeFetch('data.php', {
+                action: 'clear_history',
+                user_id: globalUserId
+            });
+            
+            showError(data.message);
+            await loadHistoryAndStats(); 
+            
+        } catch (error) {
+            showError(error.message || 'Tarixni tozalashda xato roʻy berdi.');
+        } finally {
+            hideLoading();
+        }
+    });
+}
+
+function generateStats(history) {
+    if (!statsBarContainer) return;
+
+    if (!history.length) {
+        statsBarContainer.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-10 w-full">Statistikani koʻrish uchun kiritma boʻlishi kerak.</p>';
+        if (avgProteinEl) avgProteinEl.textContent = '0g';
+        if (avgFatEl) avgFatEl.textContent = '0g';
+        if (avgCarbsEl) avgCarbsEl.textContent = '0g';
+        return;
+    }
+
+    const dailyTotals = history.reduce((acc, item) => {
+        const date = item.log_date;
+        acc[date] = (acc[date] || 0) + item.calories;
+        return acc;
+    }, {});
+    
+    const today = new Date();
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        last7Days.push({
+            date: dateStr,
+            calories: dailyTotals[dateStr] || 0
+        });
+    }
+
+    drawBarChart(last7Days);
+
+    const thirtyDaysHistory = history.filter(item => {
+        const itemDate = new Date(item.log_date);
+        const diffTime = Math.abs(today - itemDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays <= 30; 
+    });
+    
+    if (thirtyDaysHistory.length > 0) {
+        const totalProtein = thirtyDaysHistory.reduce((sum, item) => sum + item.protein, 0);
+        const totalFat = thirtyDaysHistory.reduce((sum, item) => sum + item.fat, 0); 
+        const totalCarbs = thirtyDaysHistory.reduce((sum, item) => sum + item.carbs, 0); 
+        
+        const uniqueDays = new Set(thirtyDaysHistory.map(item => item.log_date)).size;
+
+        if (avgProteinEl) avgProteinEl.textContent = `${(totalProtein / uniqueDays).toFixed(1)}g`;
+        if (avgFatEl) avgFatEl.textContent = `${(totalFat / uniqueDays).toFixed(1)}g`;
+        if (avgCarbsEl) avgCarbsEl.textContent = `${(totalCarbs / uniqueDays).toFixed(1)}g`;
+    } else {
+        if (avgProteinEl) avgProteinEl.textContent = '0g';
+        if (avgFatEl) avgFatEl.textContent = '0g';
+        if (avgCarbsEl) avgCarbsEl.textContent = '0g';
+    }
+}
+
+function drawBarChart(data) {
+    if (!statsBarContainer) return;
+    statsBarContainer.innerHTML = '';
+    const maxCalories = Math.max(...data.map(d => d.calories), 1000); 
+    const maxBarHeight = 250; 
+    
+    data.forEach(day => {
+        const height = (day.calories / maxCalories) * maxBarHeight;
+        const barItem = document.createElement('div');
+        barItem.className = 'bar-item bg-green-500 hover:bg-green-600 rounded-t-lg mx-1 relative';
+        barItem.style.height = `${Math.max(height, 5)}px`; 
+        barItem.style.width = '12.5%';
+        
+        const tooltip = document.createElement('div');
+        tooltip.className = 'bar-tooltip';
+        tooltip.textContent = `${formatDateShort(day.date)}: ${day.calories.toFixed(0)} Kkal`;
+        
+        barItem.appendChild(tooltip);
+        statsBarContainer.appendChild(barItem);
+    });
+}
+
+function formatDateShort(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' });
+}
+
+
+// --- UI Eventlar (Boshqa funksiyalar) ---
+
+if (imageUpload) {
+    imageUpload.addEventListener('change', () => {
+        if (imageUpload.files.length > 0) {
+            if (imageUploadText) imageUploadText.textContent = 'Rasm tanlandi';
+            if (imageFileName) {
+                imageFileName.textContent = imageUpload.files[0].name;
+                imageFileName.classList.remove('hidden');
+            }
+        } else {
+            if (imageUploadText) imageUploadText.textContent = 'Rasm yuklang';
+            if (imageFileName) imageFileName.classList.add('hidden');
+        }
+    });
+}
+
+tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const targetTab = button.getAttribute('data-tab');
+
+        tabButtons.forEach(btn => btn.classList.remove('active', 'text-green-500', 'text-gray-500', 'dark:text-gray-400'));
+        tabContents.forEach(content => content.classList.add('hidden'));
+
+        button.classList.add('active', 'text-green-500');
+        button.classList.remove('text-gray-500', 'dark:text-gray-400');
+        
+        const targetContent = document.getElementById(`tabContent-${targetTab}`);
+        if (targetContent) targetContent.classList.remove('hidden');
+        
+        if ((targetTab === 'history' || targetTab === 'stats') && globalUserId) {
+             loadHistoryAndStats();
+        }
+    });
+});
+
+if (switchRegisterBtn && loginForm && registerForm) {
+    switchRegisterBtn.addEventListener('click', () => {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        resetAuthMessages();
+    });
+}
+
+if (switchLoginBtn && loginForm && registerForm) {
+    switchLoginBtn.addEventListener('click', () => {
+        registerForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        resetAuthMessages();
+    });
+}
+
+if (profileBtn) {
+    profileBtn.addEventListener('click', () => {
+        if (profileModal) profileModal.classList.remove('hidden');
+        resetAuthMessages(); 
+    });
+}
+
+if (closeProfileModal) {
+    closeProfileModal.addEventListener('click', () => {
+        if (profileModal) profileModal.classList.add('hidden');
+        if (changePasswordForm) changePasswordForm.reset();
+    });
+}
+
+if (logoutBtn) logoutBtn.addEventListener('click', logout);
+if (logoutBtnModal) logoutBtnModal.addEventListener('click', logout);
+
+document.querySelectorAll('[data-password-toggle]').forEach(button => {
+    button.addEventListener('click', (e) => {
+        const targetId = e.currentTarget.getAttribute('data-password-toggle');
+        const targetInput = document.getElementById(targetId);
+        const icon = e.currentTarget.querySelector('i');
+        
+        if (targetInput && icon) {
+             if (targetInput.type === 'password') {
+                targetInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                targetInput.type = 'password';
+                icon.classList.add('fa-eye');
+                icon.classList.remove('fa-eye-slash');
+            }
+        }
+    });
+});
+
+
+// --- Dark Mode Mantiqi ---
+function setDarkMode(isDark) {
+    if (isDark) {
+        document.body.classList.add('dark');
+        if (themeIcon) {
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+        setStorage('theme', 'dark');
+    } else {
+        document.body.classList.remove('dark');
+        if (themeIcon) {
+            themeIcon.classList.add('fa-moon');
+            themeIcon.classList.remove('fa-sun');
+        }
+        setStorage('theme', 'light');
+    }
+}
+
+function initTheme() {
+    const savedTheme = getStorage('theme');
+    
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        setDarkMode(true);
+    } else {
+        setDarkMode(false);
+    }
+}
+
+if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.body.classList.contains('dark');
+        setDarkMode(!isDark);
+    });
+}
+
+// --- Animatsiya (login.html uchun) ---
+const canvas = document.getElementById('floatingBallsCanvas');
+if (canvas) {
     const ctx = canvas.getContext('2d');
-    let width, height;
-    let particles = [];
-    const MAX_PARTICLES = 100;
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
 
-    function resizeCanvas() {
+    window.addEventListener('resize', () => {
         width = window.innerWidth;
         height = window.innerHeight;
         canvas.width = width;
         canvas.height = height;
-    }
+    });
 
-    class Particle {
+    class Ball {
         constructor() {
             this.x = Math.random() * width;
             this.y = Math.random() * height;
-            this.radius = Math.random() * 2 + 1;
-            this.color = '#34D399';
-            this.velocity = {
-                x: (Math.random() - 0.5) * 0.5,
-                y: (Math.random() - 0.5) * 0.5
-            };
+            this.radius = Math.random() * 5 + 2;
+            this.vx = Math.random() * 0.5 - 0.25;
+            this.vy = Math.random() * 0.5 - 0.25;
+            this.color = 'rgba(16, 185, 129, 0.5)';
         }
 
         draw() {
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
             ctx.fillStyle = this.color;
             ctx.fill();
         }
 
         update() {
-            if (this.x + this.radius > width || this.x - this.radius < 0) {
-                this.velocity.x = -this.velocity.x;
-            }
-            if (this.y + this.radius > height || this.y - this.radius < 0) {
-                this.velocity.y = -this.velocity.y;
-            }
+            this.x += this.vx;
+            this.y += this.vy;
 
-            this.x += this.velocity.x;
-            this.y += this.velocity.y;
+            if (this.x < 0 || this.x > width) this.vx *= -1;
+            if (this.y < 0 || this.y > height) this.vy *= -1;
 
             this.draw();
         }
     }
 
-    function initParticles() {
-        particles = [];
-        for (let i = 0; i < MAX_PARTICLES; i++) {
-            particles.push(new Particle());
-        }
+    let balls = [];
+    for (let i = 0; i < 30; i++) { 
+        balls.push(new Ball());
     }
 
     function animate() {
         requestAnimationFrame(animate);
-        ctx.fillStyle = document.documentElement.classList.contains('dark') ? 'rgba(0, 0, 0, 0.1)' : 'rgba(249, 250, 251, 0.1)';
-        ctx.fillRect(0, 0, width, height); 
-
-        for (let i = 0; i < particles.length; i++) {
-            particles[i].update();
-            
-            for (let j = i + 1; j < particles.length; j++) {
-                const dx = particles[i].x - particles[j].x;
-                const dy = particles[i].y - particles[j].y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance < 100) {
-                    const lineAlpha = 1 - (distance / 100);
-                    ctx.strokeStyle = `rgba(16, 185, 129, ${lineAlpha * 0.3})`;
-                    ctx.lineWidth = 0.5;
-                    ctx.beginPath();
-                    ctx.moveTo(particles[i].x, particles[i].y);
-                    ctx.lineTo(particles[j].x, particles[j].y);
-                    ctx.stroke();
-                }
-            }
-        }
+        ctx.clearRect(0, 0, width, height);
+        
+        balls.forEach(ball => {
+            ball.update();
+        });
     }
-
-    window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
-
-    resizeCanvas();
-    initParticles();
     animate();
 }
 
 
-// --- ILovani ishga tushirish ---
-document.addEventListener('DOMContentLoaded', checkAuthAndRedirect);
+// --- Boshlash ---
+
+function initializeApp(user) {
+    if (mainApp && user) {
+        showMainApp();
+    } 
+    else if (authContainer && user) {
+        window.location.href = 'index.html';
+    }
+    else if (authContainer && !user) {
+        showAuthScreen();
+    }
+    else if (mainApp && !user) {
+         window.location.href = 'login.html';
+    }
+}
+
+window.onload = () => {
+    initTheme(); 
+    checkAuth();
+};
