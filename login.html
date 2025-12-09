@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Kirish | Calory Web App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+    <link rel="icon" href="images/favicon.png" type="image/png">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        body { font-family: 'Poppins', sans-serif; }
+        .hidden { display: none !important; }
+        /* Dark theme stillari (script.js dan yuklanadi) */
+        .dark { background-color: #000000 !important; }
+        .dark .bg-white { background-color: #121212 !important; }
+        .dark input { background-color: #1f1f1f !important; border-color: #333 !important; color: #f0f0f0 !important; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-[#000000] transition-colors duration-500 min-h-screen flex items-center justify-center relative overflow-hidden" id="authContainer">
+    <canvas id="floatingBallsCanvas" class="absolute inset-0 w-full h-full z-0"></canvas>
+    <div class="z-10 w-full max-w-md mx-auto p-6">
+        <div class="bg-white dark:bg-[#121212] rounded-2xl shadow-2xl p-8 transition-colors duration-500">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-gray-100">
+                    <i class="fas fa-lock text-green-500"></i> Avtorizatsiya
+                </h2>
+                <button id="themeToggle" class="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#1f1f1f] transition-colors">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+            </div>
+
+            <div id="authError" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 dark:bg-red-900 dark:border-red-700 dark:text-red-300" role="alert">
+                <p id="authErrorMessage" class="font-semibold"></p>
+            </div>
+            <div id="authSuccess" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 dark:bg-green-900 dark:border-green-700 dark:text-green-300" role="alert">
+                <p id="authSuccessMessage" class="font-semibold"></p>
+            </div>
+            
+            <form id="loginForm" class="space-y-4">
+                <input type="text" id="loginUsername" placeholder="Foydalanuvchi nomi" class="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-[#1f1f1f] dark:text-gray-200 focus:ring-green-500 focus:border-green-500" required>
+                
+                <div class="relative">
+                    <input type="password" id="loginPassword" placeholder="Parol" class="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-[#1f1f1f] dark:text-gray-200 focus:ring-green-500 focus:border-green-500 pr-10" required>
+                    <button type="button" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" data-password-toggle="loginPassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                
+                <div class="flex justify-end items-center text-sm dark:text-gray-400">
+                    <p>Akkaunt yo'qmi? 
+                    <button id="switchRegister" type="button" class="text-blue-500 hover:underline font-semibold">Ro'yxatdan o'tish</button></p>
+                </div>
+
+                <button id="loginBtn" type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-colors duration-300"><i class="fas fa-sign-in-alt"></i> Kirish</button>
+            </form>
+
+            <form id="registerForm" class="space-y-4 hidden">
+                <input type="text" id="regUsername" placeholder="Foydalanuvchi nomi yaratish" class="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-[#1f1f1f] dark:text-gray-200 focus:ring-green-500 focus:border-green-500" required>
+                
+                <div class="relative">
+                    <input type="password" id="regPassword" placeholder="Parol yaratish" class="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-[#1f1f1f] dark:text-gray-200 focus:ring-green-500 focus:border-green-500 pr-10" required>
+                    <button type="button" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" data-password-toggle="regPassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                
+                <div class="flex justify-end items-center text-sm dark:text-gray-400">
+                    <button id="switchLogin" type="button" class="text-blue-500 hover:underline font-semibold">Kirish sahifasiga qaytish</button>
+                </div>
+
+                <button id="registerBtn" type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors duration-300"><i class="fas fa-user-plus"></i> Ro'yxatdan o'tish</button>
+            </form>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
