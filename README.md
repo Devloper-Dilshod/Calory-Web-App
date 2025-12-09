@@ -17,9 +17,9 @@ O'rnatilgan mahalliy serveringizning veb-katalogiga o'ting:
 
 XAMPP/WAMP/Laragon uchun: Odatda htdocs/ yoki www/ katalogi.
 
-htdocs/ katalogi ichida ai-calorie-tracker/ nomli yangi katalog yarating.
+htdocs/ katalogi ichida calory-web-app/ nomli yangi katalog yarating.
 
-Loyihaning barcha fayllarini (index.html, script.js, api/, db/, init/) shu ai-calorie-tracker/ katalogi ichiga ko'chiring.
+Loyihaning barcha fayllarini (index.html, script.js, api/, db/) shu calory-web-app katalogi ichiga ko'chiring.
 
 3. Konfiguratsiya (Kalitni Kiritish)
 api/calculate.php faylini oching.
@@ -27,16 +27,8 @@ api/calculate.php faylini oching.
 OPENROUTER_API_KEY qatoriga o'zingizning haqiqiy OpenRouter API kalitini joylashtiring.
 
 4. Ma'lumotlar Bazasini O'rnatish
-Loyihani mahalliy ishga tushirish uchun SQLite faylini yaratish kerak.
+O'zi avtomatik yaratiladi jsonda
 
-Brauzeringizni oching.
-
-Quyidagi manzilga o'ting:
-
-http://localhost/ai-calorie-tracker/init/db_setup.php
-Ekranda "✅ Ma'lumotlar bazasi..." xabari paydo bo'lishini kuting. Bu db/app.sqlite3 faylini yaratadi.
-
-Xavfsizlik maqsadida, ai-calorie-tracker/init/db_setup.php faylini darhol o'chiring.
 
 5. Ishga Tushirish
 Brauzeringizda asosiy manzilga o'ting:
