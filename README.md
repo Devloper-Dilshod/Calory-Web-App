@@ -1,4 +1,4 @@
-💻 Mahalliy O'rnatish (Local Setup)
+💻 (Local Setup)
 Loyihani o'zingizning kompyuteringizda ishga tushirish uchun sizga PHP server muhiti kerak bo'ladi.
 
 1. Server Muhitini O'rnatish
