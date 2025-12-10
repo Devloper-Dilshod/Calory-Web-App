@@ -1,4 +1,4 @@
-💻 Mahalliy O'rnatish (Local Setup)
+(Local Setup)
 Loyihani o'zingizning kompyuteringizda ishga tushirish uchun sizga PHP server muhiti kerak bo'ladi.
 
 1. Server Muhitini O'rnatish
@@ -37,3 +37,25 @@ http://localhost/ai-calorie-tracker/
 Siz Kirish (Login) sahifasini ko'rishingiz kerak.
 
 Ro'yxatdan o'tishni sinab ko'ring va kaloriya hisoblash funksiyasidan foydalaning.
+
+Demo : https://dilshodsayfiddinov12.alwaysdata.net/calory-web-app/
+
+## 📸 Loyihadan screenshotlar
+
+### 🔢 Calculated Page
+![Calculated](images/screenshots/calculated.png)
+
+### 🔐 Login Page
+![Login](images/screenshots/login.png)
+
+### 🏠 Main Page
+![Main](images/screenshots/main.png)
+
+### 👤 Profile Page
+![Profile](images/screenshots/profile.png)
+
+### 📝 Register Page
+![Register](images/screenshots/register.png)
+
+### 📊 Stats Page
+![Stats](images/screenshots/stats.png)
