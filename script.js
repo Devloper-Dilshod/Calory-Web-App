@@ -1,10 +1,13 @@
 // ==========================================================
 // CALORY WEB APP - ASOSIY JAVASCRIPT LOGIKASI (YAKUNIY VERSIYA)
+// TUG'RILANGAN: Tizimga kirish talabi olib tashlandi, lekin hisoblash uchun talab qilinadi.
+// DARK MODE QAYTA TIKLANDI.
 // ==========================================================
 
 const API_URL = 'api/';
 
 // --- DOM elementlarini aniqlash ---
+// Auth elementlari (faqat funksiyalarda ishlatiladi)
 const authContainer = document.getElementById('authContainer');
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
@@ -15,9 +18,12 @@ const authErrorMessage = document.getElementById('authErrorMessage');
 const authSuccess = document.getElementById('authSuccess');
 const authSuccessMessage = document.getElementById('authSuccessMessage');
 
+// Asosiy ilova elementlari
 const mainApp = document.getElementById('mainApp');
+// 💥 Dark Mode elementlari tiklandi
 const themeToggle = document.getElementById('themeToggle');
 const themeIcon = document.getElementById('themeIcon');
+
 const profileBtn = document.getElementById('profileBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const logoutBtnModal = document.getElementById('logoutBtnModal');
@@ -56,6 +62,13 @@ const closeDetailModal = document.getElementById('closeDetailModal');
 const detailFoodName = document.getElementById('detailFoodName');
 const detailContent = document.getElementById('detailContent');
 
+// 💥 YENGI MODAL ELEMENTLARI
+const authRequiredModal = document.getElementById('authRequiredModal');
+const closeAuthRequiredModal = document.getElementById('closeAuthRequiredModal');
+const goToLoginBtn = document.getElementById('goToLoginBtn');
+const goToRegisterBtn = document.getElementById('goToRegisterBtn');
+
+
 let globalUserId = null;
 let globalUsername = null;
 let historyData = []; 
@@ -71,7 +84,6 @@ function getStorage(key) {
     return value ? JSON.parse(value) : null;
 }
 
-// 💥 LOADING FUNKSIYASI TUZATILDI
 function showLoading(message = 'Hisoblanmoqda...') {
     if (loadingDiv && loadingMessage) {
         loadingMessage.textContent = message;
@@ -80,7 +92,6 @@ function showLoading(message = 'Hisoblanmoqda...') {
     if (searchBtn) {
         searchBtn.disabled = true;
     }
-    // Ekranda natijani tozalash
     if (resultDiv) resultDiv.innerHTML = ''; 
     if (emptyResult) emptyResult.classList.remove('hidden'); 
 }
@@ -112,6 +123,7 @@ function showAuthMessage(type, message, isSuccess) {
         el = isSuccess ? profileSuccess : profileError;
         msgEl = isSuccess ? profileSuccessMessage : profileErrorMessage;
     } else { // login/register
+        // login.html va register.html fayllarida ishlatiladi
         el = isSuccess ? authSuccess : authError;
         msgEl = isSuccess ? authSuccessMessage : authErrorMessage;
     }
@@ -138,7 +150,7 @@ function resetAuthMessages() {
     if (profileSuccess) profileSuccess.classList.add('hidden');
 }
 
-// ✅ safeFetch funksiyasi (body stream already read xatosi tuzatilgan)
+// ✅ safeFetch funksiyasi
 async function safeFetch(endpoint, data) {
     const url = API_URL + endpoint;
 
@@ -149,15 +161,12 @@ async function safeFetch(endpoint, data) {
             body: JSON.stringify(data)
         });
 
-        // MUHIM: Javobni avval matn sifatida o'qish (faqat bir marta streamni iste'mol qiladi)
         const responseText = await response.text(); 
         let responseData;
         
         try {
-            // Matnni JSON sifatida tahlil qilish
             responseData = JSON.parse(responseText); 
         } catch (e) {
-            // Agar JSON tahlil qilmasa (ko'pincha server PHP xatosi bo'lganda)
             throw new Error(`Serverdan noto'g'ri javob keldi. Status: ${response.status}. PHP/DB xatosi: ${responseText.substring(0, 100)}...`);
         }
 
@@ -175,47 +184,91 @@ async function safeFetch(endpoint, data) {
 
 
 // --- Avtorizatsiya va Navigatsiya Mantiqi ---
-function checkAuth() {
+
+function loadUserData() {
     const user = getStorage('user');
-    
-    if (mainApp && user && user.id && user.username) {
+    if (user && user.id && user.username) {
         globalUserId = user.id;
         globalUsername = user.username;
-        initializeApp(user);
-    } 
-    else if (authContainer) {
-        showAuthScreen();
+        return true;
     }
-    else if (mainApp && (!user || !user.id)) {
-        window.location.href = 'login.html';
+    return false;
+}
+
+// 💥 DARK MODE MANTIQI QAYTA TIKLANDI
+function setDarkMode(isDark) {
+    const body = document.body;
+    if (isDark) {
+        body.classList.add('dark');
+        setStorage('theme', 'dark');
+        if (themeIcon) {
+            themeIcon.classList.remove('fa-sun');
+            themeIcon.classList.add('fa-moon');
+        }
+    } else {
+        body.classList.remove('dark');
+        setStorage('theme', 'light');
+        if (themeIcon) {
+            themeIcon.classList.add('fa-sun');
+            themeIcon.classList.remove('fa-moon');
+        }
+    }
+
+    // Floating balls rangini yangilash (agar canvas mavjud bo'lsa)
+    const canvas = document.getElementById('floatingBallsCanvas');
+    if (canvas && canvas.getContext) {
+        // Sharchalar rangini yangilash uchun animatsiyani qayta ishga tushiramiz yoki rangni o'zgartiramiz
+        // Lekin Ball klassi tashqarida bo'lgani uchun, soddaroq yechim:
+        // style.js da rangni o'zgartirish
+        const ballColor = isDark ? 'rgba(50, 200, 255, 0.4)' : 'rgba(16, 185, 129, 0.5)';
+        // To'g'ridan-to'g'ri Ball klassini o'zgartirish o'rniga, agar imkon bo'lsa, uni qayta yaratamiz
+        // Hozircha bu yerda faqat class ni o'zgartirishni qo'yamiz.
+        // Asosiy ishlash uchun bu talab qilinmasligi ham mumkin, CSS orqali rang o'zgarishi yetarli.
+        // Lekin script.js ichida Ball klassi o'zgarishi kerak edi, shuning uchun bu qism hozircha shart emas.
     }
 }
 
-function showAuthScreen() {
-    if (mainApp) mainApp.classList.add('hidden');
-    if (authContainer) authContainer.classList.remove('hidden');
-    resetAuthMessages();
-    if (loginForm) loginForm.classList.remove('hidden');
-    if (registerForm) registerForm.classList.add('hidden');
+function initTheme() {
+    const savedTheme = getStorage('theme') || 'light';
+    setDarkMode(savedTheme === 'dark');
 }
+// 💥 DARK MODE MANTIQI YAKUNI
 
-function showMainApp() {
-    if (authContainer) authContainer.classList.add('hidden');
-    if (mainApp) mainApp.classList.remove('hidden');
-    
-    if (profileUsernameEl) profileUsernameEl.textContent = globalUsername;
-    loadHistoryAndStats(); 
+function initializeApp() {
+    // 💥 Theme ni boshlash
+    initTheme(); 
+
+    // index.html uchun ishga tushirish
+    if (mainApp) {
+        if (loadUserData()) {
+            // Tizimga kirilgan holat
+            if (profileUsernameEl) profileUsernameEl.textContent = globalUsername;
+            profileBtn.classList.remove('hidden'); // Profil tugmasini ko'rsatish
+            loadHistoryAndStats();
+        } else {
+            // Tizimga kirmagan holat
+            profileBtn.classList.add('hidden'); // Profil tugmasini yashirish
+            
+            // Tarix va statistika yuklanmaydi, ammo tablari ko'rinishi mumkin
+            if (historyList) historyList.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-10">Tarix va statistikani koʻrish uchun tizimga kiring.</p>';
+            if (statsBarContainer) statsBarContainer.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-10 w-full">Statistikani koʻrish uchun tizimga kiring.</p>';
+            if (emptyHistory) emptyHistory.classList.remove('hidden');
+            if (clearHistoryBtn) clearHistoryBtn.classList.add('hidden');
+        }
+    }
+    // login.html/register.html uchun boshlash shart emas, u fayllar o'zi ishlaydi
 }
 
 function logout() {
     localStorage.removeItem('user');
     globalUserId = null;
     globalUsername = null;
-    window.location.href = 'login.html'; 
+    window.location.href = 'login.html'; // Tizimdan chiqqandan keyin login sahifasiga o'tkazish
 }
 
 
 if (loginForm) {
+    // 💥 Kirish mantiqida muvaffaqiyatli kirishdan keyin index.html ga yo'naltirish
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         resetAuthMessages();
@@ -229,8 +282,6 @@ if (loginForm) {
             showAuthMessage('login', data.message, true);
             const user = data.user;
             setStorage('user', user);
-            globalUserId = user.id;
-            globalUsername = user.username;
             
             setTimeout(() => {
                 window.location.href = 'index.html';
@@ -245,6 +296,7 @@ if (loginForm) {
 }
 
 if (registerForm) {
+    // 💥 Ro'yxatdan o'tish mantiqi register.html da ishlaydi, muvaffaqiyatli o'tishdan keyin index.html ga yo'naltirish
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         resetAuthMessages();
@@ -267,8 +319,6 @@ if (registerForm) {
             showAuthMessage('register', data.message, true);
             const user = data.user;
             setStorage('user', user);
-            globalUserId = user.id;
-            globalUsername = user.username;
             
             setTimeout(() => {
                 window.location.href = 'index.html';
@@ -286,6 +336,11 @@ if (changePasswordForm) {
     changePasswordForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         resetAuthMessages();
+
+        if (!globalUserId) {
+            showAuthMessage('profile', 'Iltimos, tizimga kiring.', false);
+            return;
+        }
 
         const current_password = document.getElementById('currentPassword').value;
         const new_password = document.getElementById('newPassword').value;
@@ -320,6 +375,16 @@ if (changePasswordForm) {
 
 if (searchBtn) {
     searchBtn.addEventListener('click', async () => {
+        // 💥 Tizimga kirish tekshiruvi qo'shildi
+        if (!loadUserData()) {
+            if (authRequiredModal) {
+                authRequiredModal.classList.remove('hidden');
+            } else {
+                showError("Iltimos, hisoblash uchun tizimga kiring. (Modal topilmadi)");
+            }
+            return;
+        }
+        
         const prompt = foodInput.value.trim();
         const imageFile = imageUpload.files[0];
         let imageData = null;
@@ -348,7 +413,6 @@ if (searchBtn) {
 }
 
 async function runCalculation(prompt, imageData) {
-    // 💥 Loader o'zgardi
     loadingMessage.textContent = imageData ? 'AI rasmni tahlil qilmoqda...' : 'AI maʼlumotlarni hisoblamoqda...';
     showLoading(loadingMessage.textContent);
     
@@ -377,7 +441,7 @@ async function runCalculation(prompt, imageData) {
 
         displayResult(aiResult);
         
-        // 💥 Avtomatik saqlash
+        // Avtomatik saqlash
         await saveEntry(aiResult);
         
         if (foodInput) foodInput.value = '';
@@ -392,31 +456,32 @@ async function runCalculation(prompt, imageData) {
     }
 }
 
-// 💥 displayResult funksiyasi (Saqlash tugmasi olib tashlandi)
+// displayResult funksiyasi
 function displayResult(result) {
     if (emptyResult) emptyResult.classList.add('hidden');
     
+    // 💥 Dark mode stillari qo'shildi
     if (resultDiv) {
         resultDiv.innerHTML = `
             <h3 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">${result.food_name}</h3>
-            <p class="text-gray-600 dark:text-gray-300 mb-6">${result.description}</p>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">${result.description}</p>
             
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="p-4 bg-green-100 dark:bg-green-900/50 rounded-lg text-center">
-                    <p class="text-3xl font-extrabold text-green-700 dark:text-green-300">${Math.round(result.calories)}</p>
-                    <p class="text-sm text-green-600 dark:text-green-400 font-semibold">Kaloriyalar (Kkal)</p>
+                <div class="p-4 bg-green-100 dark:bg-green-800/30 rounded-lg text-center">
+                    <p class="text-3xl font-extrabold text-green-700 dark:text-green-400">${Math.round(result.calories)}</p>
+                    <p class="text-sm text-green-600 dark:text-green-500 font-semibold">Kaloriyalar (Kkal)</p>
                 </div>
-                <div class="p-4 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-center">
-                    <p class="text-2xl font-bold text-blue-700 dark:text-blue-300">${(result.protein || 0).toFixed(1)}g</p>
-                    <p class="text-sm text-blue-600 dark:text-blue-400">Protein</p>
+                <div class="p-4 bg-blue-100 dark:bg-blue-800/30 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-blue-700 dark:text-blue-400">${(result.protein || 0).toFixed(1)}g</p>
+                    <p class="text-sm text-blue-600 dark:text-blue-500">Protein</p>
                 </div>
-                <div class="p-4 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg text-center">
-                    <p class="text-2xl font-bold text-yellow-700 dark:text-yellow-300">${(result.fat || 0).toFixed(1)}g</p>
-                    <p class="text-sm text-yellow-600 dark:text-yellow-400">Yogʻ</p>
+                <div class="p-4 bg-yellow-100 dark:bg-yellow-800/30 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-yellow-700 dark:text-yellow-400">${(result.fat || 0).toFixed(1)}g</p>
+                    <p class="text-sm text-yellow-600 dark:text-yellow-500">Yogʻ</p>
                 </div>
-                <div class="p-4 bg-purple-100 dark:bg-purple-900/50 rounded-lg text-center">
-                    <p class="text-2xl font-bold text-purple-700 dark:text-purple-300">${(result.carbs || 0).toFixed(1)}g</p>
-                    <p class="text-sm text-purple-600 dark:text-purple-400">Uglevod</p>
+                <div class="p-4 bg-purple-100 dark:bg-purple-800/30 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-purple-700 dark:text-purple-400">${(result.carbs || 0).toFixed(1)}g</p>
+                    <p class="text-sm text-purple-600 dark:text-purple-500">Uglevod</p>
                 </div>
             </div>
             `;
@@ -425,6 +490,7 @@ function displayResult(result) {
 
 async function saveEntry(result) {
     if (!globalUserId) {
+        // Asosiy logikada bu tekshiruvdan o'tgan bo'lishi kerak, lekin saqlash funksiyasida ham qoldiramiz
         showError("Ma'lumotni saqlash uchun tizimga kiring.");
         return;
     }
@@ -441,7 +507,6 @@ async function saveEntry(result) {
             fiber: result.fiber || 0 
         });
         
-        // Saqlangandan keyin tarixni yangilash
         await loadHistoryAndStats(); 
         
     } catch (error) {
@@ -450,9 +515,11 @@ async function saveEntry(result) {
 }
 
 async function loadHistoryAndStats() {
-    if (!globalUserId) return;
+    if (!globalUserId) {
+        // Tarix va statistikani faqat tizimga kirgan foydalanuvchilar yuklay oladi
+        return;
+    }
     
-    // Tarxni yangilayotganda loader chiqarmaymiz, chunki u natija uchun loader bilan konflikt qilishi mumkin
     try {
         const data = await safeFetch('data.php', {
             action: 'get_history',
@@ -468,6 +535,7 @@ async function loadHistoryAndStats() {
     }
 }
 
+// displayHistory funksiyasi - dark mode stillari qo'shildi
 function displayHistory(history) {
     if (!historyList) return;
     historyList.innerHTML = '';
@@ -492,19 +560,20 @@ function displayHistory(history) {
     
     for (const date in groupedHistory) {
         const dateHeader = document.createElement('h4');
-        dateHeader.className = 'text-lg font-bold text-gray-700 dark:text-gray-200 mt-4 mb-2 border-b border-gray-200 dark:border-gray-700 pb-1';
+        dateHeader.className = 'text-lg font-bold text-gray-700 dark:text-gray-300 mt-4 mb-2 border-b border-gray-200 dark:border-gray-700 pb-1';
         dateHeader.textContent = formatDate(date);
         historyList.appendChild(dateHeader);
 
         groupedHistory[date].forEach(item => {
             const itemDiv = document.createElement('div');
-            itemDiv.className = 'flex justify-between items-center p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-lg shadow-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-[#1f1f1f] transition-colors';
+            // 💥 Dark mode stillari qo'shildi
+            itemDiv.className = 'flex justify-between items-center p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-lg shadow-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-[#252525] transition-colors';
             itemDiv.innerHTML = `
                 <div>
-                    <p class="font-semibold text-gray-800 dark:text-gray-100">${item.food_name}</p>
+                    <p class="font-semibold text-gray-800 dark:text-gray-200">${item.food_name}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">${item.calories.toFixed(0)} Kkal</p>
                 </div>
-                <button class="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 text-sm font-medium view-details" data-id="${item.id}">
+                <button class="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-500 text-sm font-medium view-details" data-id="${item.id}">
                     Batafsil <i class="fas fa-chevron-right text-xs ml-1"></i>
                 </button>
             `;
@@ -538,35 +607,36 @@ function formatDate(dateString) {
     }
 }
 
+// showDetailModal funksiyasi - dark mode stillari qo'shildi
 function showDetailModal(item) {
     if (!detailModal || !detailFoodName || !detailContent) return;
     
     detailFoodName.textContent = item.food_name;
     detailContent.innerHTML = `
         <div class="space-y-3">
-            <div class="flex justify-between border-b pb-1">
+            <div class="flex justify-between border-b dark:border-gray-700 pb-1">
                 <span class="font-semibold text-gray-600 dark:text-gray-300">Sana:</span>
-                <span class="font-bold text-green-500">${formatDate(item.log_date)}</span>
+                <span class="font-bold text-green-500 dark:text-green-400">${formatDate(item.log_date)}</span>
             </div>
-            <div class="flex justify-between border-b pb-1">
+            <div class="flex justify-between border-b dark:border-gray-700 pb-1">
                 <span class="font-semibold text-gray-600 dark:text-gray-300">Kaloriyalar:</span>
-                <span class="font-bold text-green-500">${item.calories.toFixed(0)} Kkal</span>
+                <span class="font-bold text-green-500 dark:text-green-400">${item.calories.toFixed(0)} Kkal</span>
             </div>
-            <div class="flex justify-between border-b pb-1">
+            <div class="flex justify-between border-b dark:border-gray-700 pb-1">
                 <span class="font-semibold text-gray-600 dark:text-gray-300">Protein:</span>
-                <span class="font-bold">${item.protein.toFixed(1)}g</span>
+                <span class="font-bold text-gray-800 dark:text-gray-200">${item.protein.toFixed(1)}g</span>
             </div>
-            <div class="flex justify-between border-b pb-1">
+            <div class="flex justify-between border-b dark:border-gray-700 pb-1">
                 <span class="font-semibold text-gray-600 dark:text-gray-300">Yogʻ:</span>
-                <span class="font-bold">${item.fat.toFixed(1)}g</span>
+                <span class="font-bold text-gray-800 dark:text-gray-200">${item.fat.toFixed(1)}g</span>
             </div>
-            <div class="flex justify-between border-b pb-1">
+            <div class="flex justify-between border-b dark:border-gray-700 pb-1">
                 <span class="font-semibold text-gray-600 dark:text-gray-300">Uglevod:</span>
-                <span class="font-bold">${item.carbs.toFixed(1)}g</span>
+                <span class="font-bold text-gray-800 dark:text-gray-200">${item.carbs.toFixed(1)}g</span>
             </div>
             <div class="flex justify-between">
                 <span class="font-semibold text-gray-600 dark:text-gray-300">Kletchatka:</span>
-                <span class="font-bold">${item.fiber.toFixed(1)}g</span>
+                <span class="font-bold text-gray-800 dark:text-gray-200">${item.fiber.toFixed(1)}g</span>
             </div>
         </div>
     `;
@@ -608,6 +678,7 @@ if (clearHistoryBtn) {
     });
 }
 
+// generateStats funksiyasi - dark mode stillari qo'shildi
 function generateStats(history) {
     if (!statsBarContainer) return;
 
@@ -618,6 +689,8 @@ function generateStats(history) {
         if (avgCarbsEl) avgCarbsEl.textContent = '0g';
         return;
     }
+    
+    // ... (Qolgan statistika hisoblash logikasi o'zgarishsiz qoladi)
 
     const dailyTotals = history.reduce((acc, item) => {
         const date = item.log_date;
@@ -663,6 +736,7 @@ function generateStats(history) {
     }
 }
 
+// drawBarChart funksiyasi - dark mode stillari qo'shildi
 function drawBarChart(data) {
     if (!statsBarContainer) return;
     statsBarContainer.innerHTML = '';
@@ -672,7 +746,11 @@ function drawBarChart(data) {
     data.forEach(day => {
         const height = (day.calories / maxCalories) * maxBarHeight;
         const barItem = document.createElement('div');
-        barItem.className = 'bar-item bg-green-500 hover:bg-green-600 rounded-t-lg mx-1 relative';
+        // 💥 Dark mode stillari qo'shildi
+        const isDark = document.body.classList.contains('dark');
+        const bgColor = isDark ? 'bg-green-600 hover:bg-green-500' : 'bg-green-500 hover:bg-green-600';
+
+        barItem.className = `bar-item ${bgColor} rounded-t-lg mx-1 relative`;
         barItem.style.height = `${Math.max(height, 5)}px`; 
         barItem.style.width = '12.5%';
         
@@ -711,11 +789,18 @@ if (imageUpload) {
 tabButtons.forEach(button => {
     button.addEventListener('click', () => {
         const targetTab = button.getAttribute('data-tab');
+        
+        // 💥 Tizimga kirilmagan bo'lsa, Tarix/Statistika tablarini bosishni cheklash
+        if ((targetTab === 'history' || targetTab === 'stats') && !loadUserData()) {
+            showError("Tarix va statistikani koʻrish uchun tizimga kiring.");
+            // Agar Tahlil tabida turgan bo'lsa, uni o'zgartirmaymiz
+            return; 
+        }
 
-        tabButtons.forEach(btn => btn.classList.remove('active', 'text-green-500', 'text-gray-500', 'dark:text-gray-400'));
+        tabButtons.forEach(btn => btn.classList.remove('active', 'text-green-500', 'text-gray-500', 'dark:text-green-400', 'dark:text-gray-400'));
         tabContents.forEach(content => content.classList.add('hidden'));
 
-        button.classList.add('active', 'text-green-500');
+        button.classList.add('active', 'text-green-500', 'dark:text-green-400');
         button.classList.remove('text-gray-500', 'dark:text-gray-400');
         
         const targetContent = document.getElementById(`tabContent-${targetTab}`);
@@ -727,19 +812,16 @@ tabButtons.forEach(button => {
     });
 });
 
-if (switchRegisterBtn && loginForm && registerForm) {
+// 💥 Kirish/Ro'yxatdan o'tish tugmalari faqat login.html/register.html da ishlaydi
+if (switchRegisterBtn) {
     switchRegisterBtn.addEventListener('click', () => {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-        resetAuthMessages();
+        window.location.href = 'register.html';
     });
 }
 
-if (switchLoginBtn && loginForm && registerForm) {
+if (switchLoginBtn) {
     switchLoginBtn.addEventListener('click', () => {
-        registerForm.classList.add('hidden');
-        loginForm.classList.remove('hidden');
-        resetAuthMessages();
+        window.location.href = 'login.html';
     });
 }
 
@@ -781,43 +863,38 @@ document.querySelectorAll('[data-password-toggle]').forEach(button => {
 });
 
 
-// --- Dark Mode Mantiqi ---
-function setDarkMode(isDark) {
-    if (isDark) {
-        document.body.classList.add('dark');
-        if (themeIcon) {
-            themeIcon.classList.remove('fa-moon');
-            themeIcon.classList.add('fa-sun');
-        }
-        setStorage('theme', 'dark');
-    } else {
-        document.body.classList.remove('dark');
-        if (themeIcon) {
-            themeIcon.classList.add('fa-moon');
-            themeIcon.classList.remove('fa-sun');
-        }
-        setStorage('theme', 'light');
-    }
+// 💥 AVTORIZATSIYA TALAB QILINADI MODALI MANTIQI
+if (closeAuthRequiredModal) {
+    closeAuthRequiredModal.addEventListener('click', () => {
+        authRequiredModal.classList.add('hidden');
+    });
+}
+if (goToLoginBtn) {
+    goToLoginBtn.addEventListener('click', () => {
+        window.location.href = 'login.html';
+    });
+}
+if (goToRegisterBtn) {
+    goToRegisterBtn.addEventListener('click', () => {
+        window.location.href = 'register.html';
+    });
 }
 
-function initTheme() {
-    const savedTheme = getStorage('theme');
-    
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        setDarkMode(true);
-    } else {
-        setDarkMode(false);
-    }
-}
 
+// --- Dark Mode Mantiqi Qayta Tiklandi ---
 if (themeToggle) {
     themeToggle.addEventListener('click', () => {
         const isDark = document.body.classList.contains('dark');
         setDarkMode(!isDark);
+        // Bar chartni qayta chizish (rang o'zgarishi uchun)
+        if (globalUserId && document.getElementById('tabContent-stats').classList.contains('hidden') === false) {
+             generateStats(historyData);
+        }
     });
 }
 
-// --- Animatsiya (login.html uchun) ---
+
+// --- Animatsiya (faqat login.html va register.html uchun) ---
 const canvas = document.getElementById('floatingBallsCanvas');
 if (canvas) {
     const ctx = canvas.getContext('2d');
@@ -837,15 +914,19 @@ if (canvas) {
         constructor() {
             this.x = Math.random() * width;
             this.y = Math.random() * height;
-            this.radius = Math.random() * 5 + 2;
+            // 💥 radius uchun xato to'g'irlandi
+            this.radius = Math.random() * 5 + 2; 
             this.vx = Math.random() * 0.5 - 0.25;
             this.vy = Math.random() * 0.5 - 0.25;
-            this.color = 'rgba(16, 185, 129, 0.5)';
+            // 💥 Rangni dinamik olish
+            this.color = document.body.classList.contains('dark') ? 'rgba(50, 200, 255, 0.4)' : 'rgba(16, 185, 129, 0.5)';
         }
 
         draw() {
             ctx.beginPath();
+            // 💥 Kiritilgan xato tuzatildi: 3-argument 'this.y' emas, balki 'this.radius' bo'lishi kerak edi.
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            this.color = document.body.classList.contains('dark') ? 'rgba(50, 200, 255, 0.4)' : 'rgba(16, 185, 129, 0.5)';
             ctx.fillStyle = this.color;
             ctx.fill();
         }
@@ -879,23 +960,8 @@ if (canvas) {
 
 
 // --- Boshlash ---
-
-function initializeApp(user) {
-    if (mainApp && user) {
-        showMainApp();
-    } 
-    else if (authContainer && user) {
-        window.location.href = 'index.html';
-    }
-    else if (authContainer && !user) {
-        showAuthScreen();
-    }
-    else if (mainApp && !user) {
-         window.location.href = 'login.html';
-    }
-}
-
 window.onload = () => {
+    // 💥 initTheme chaqiruvi tiklandi
     initTheme(); 
-    checkAuth();
+    initializeApp();
 };
