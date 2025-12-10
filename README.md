@@ -65,6 +65,11 @@ Demo : https://dilshodsayfiddinov12.alwaysdata.net/calory-web-app/
 ### 📊 Stats Page
 ![Stats](images/screenshots/stats.png)
 =======
+
+### 🌑 Dark mode
+![Dark_mode](images/screenshots/dark_mode.png)
+=======
+
 Demo :
 https://dilshodsayfiddinov12.alwaysdata.net/calory-web-app/
 
