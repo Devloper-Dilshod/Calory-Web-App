@@ -8,7 +8,7 @@ ini_set('display_errors', 0);
 header('Content-Type: application/json');
 
 // !!! SIZNING HAQIQIY OPENROUTER KALITINGIZ !!!
-const OPENROUTER_API_KEY = "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"; 
+const OPENROUTER_API_KEY = "OPENROUTER_API_KEY"; 
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL_NAME = "amazon/nova-2-lite-v1"; 
