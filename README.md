@@ -37,3 +37,6 @@ http://localhost/ai-calorie-tracker/
 Siz Kirish (Login) sahifasini ko'rishingiz kerak.
 
 Ro'yxatdan o'tishni sinab ko'ring va kaloriya hisoblash funksiyasidan foydalaning.
+
+Demo :
+https://dilshodsayfiddinov12.alwaysdata.net/calory-web-app/
