@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-(Local Setup)
-=======
-💻 (Local Setup)
->>>>>>> 494ee44482c60633fea7d834bd5bc88cb948ca72
+
 Loyihani o'zingizning kompyuteringizda ishga tushirish uchun sizga PHP server muhiti kerak bo'ladi.
 
 1. Server Muhitini O'rnatish
