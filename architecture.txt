@@ -1,0 +1,31 @@
+ARXITEKTURA
+|
+|-- api/ (Backend Mantig'i)
+|    |
+|    |-- auth.php (Autentifikatsiya)
+|    |-- calculate.php (Hisob-kitob)
+|    |-- data.php (Ma'lumotlar bilan ishlash)
+|
+|-- db/ (Ma'lumotlar Saqlash - JSON)
+|    |
+|    |-- history.json (Tarix)
+|    |-- users.json (Foydalanuvchilar)
+|
+|-- images/ (Vizual Aktivlar)
+|    |
+|    |-- screenshots/ (Ekran rasmlari)
+|    |    |-- calculated.png
+|    |    |-- dark_mode.png
+|    |    |-- history.png
+|    |    |-- login.png
+|    |    |-- main.png
+|    |    |-- profile.png
+|    |    |-- register.png
+|    |    |-- stats.png
+|    |
+|    |-- favicon.png
+|
+|-- index.html (Asosiy Sahifa - Frontend)
+|-- login.html (Kirish Sahifasi - Frontend)
+|-- README.md (Hujjatlashtirish)
+|-- script.js (Frontend Mantig'i)
